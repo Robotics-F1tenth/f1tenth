@@ -1,0 +1,6 @@
+[submodule "src/control/mppi_controller"]
+	path = src/control/mppi_controller
+	url = git@github.com:JangJunhyeok21/mppi-controller.git
+[submodule "src/control/smppi_cuda_controller"]
+	path = src/control/smppi_cuda_controller
+	url = git@github.com:JangJunhyeok21/smooth-mppi-cuda.git
