@@ -7,3 +7,6 @@
 [submodule "src/racecar_simulator"]
 	path = src/racecar_simulator
 	url = git@github.com:JangJunhyeok21/racecar_simulator.git
+[submodule "src/perception"]
+	path = src/perception
+	url = git@github.com:heojy/f1_perception.git
