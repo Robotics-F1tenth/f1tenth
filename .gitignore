@@ -27,3 +27,6 @@ env/
 .coverage
 logs/
 log/
+frames_*.gv
+frames_*.pdf
+tree.txt
