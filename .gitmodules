@@ -11,4 +11,4 @@
 [submodule "src/perception"]
 	path = src/perception
 	url = git@github.com:heojy/f1_perception.git
-	branch = main
+	branch = simulation
