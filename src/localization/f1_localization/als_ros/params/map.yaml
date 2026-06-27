@@ -1,0 +1,4 @@
+map_server:
+  ros__parameters:
+    yaml_filename: "/home/a/f1tenth_ws/src/localization/f1_localization/als_ros/maps/map1.yaml"
+    use_sim_time: false

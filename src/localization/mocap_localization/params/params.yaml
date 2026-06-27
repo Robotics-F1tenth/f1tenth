@@ -1,0 +1,18 @@
+/**:
+  ros__parameters:
+    # Input topic that publishes mocap4r2_msgs/msg/Rigidbodies
+    input_topic: "/rigid_bodies"
+
+    # Output frame_id for the PoseStamped header
+    output_frame: "map"
+
+    # 3x3 rotation matrix in row-major order (R_world_from_mocap)
+    # Example below = 90 deg yaw about +Z (mocap -> world)
+    rotation: [0.7071, -0.7071, 0.0,
+               0.7071, 0.7071, 0.0,
+               0.0, 0.0, 1.0]
+
+    # 3x1 translation vector t_world_from_mocap (meters)
+    translation: [4.0556, 4.844705, 0.0]
+
+    publish_tf: true
