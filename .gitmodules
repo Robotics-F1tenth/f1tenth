@@ -14,4 +14,11 @@
 	branch = feature/acc-yaw-estimation
 [submodule "src/f1_localization"]
 	path = src/f1_localization
-	url = https://github.com/heojy/f1_localization.git
+	url = git@github.com:heojy/f1_localization.git
+[submodule "src/vesc"]
+	path = src/vesc
+	url = git@github.com:Robotics-F1tenth/vesc.git
+	branch = ros2
+[submodule "src/f1tenth_system"]
+	path = src/f1tenth_system
+	url = git@github.com:Robotics-F1tenth/f1tenth_system.git

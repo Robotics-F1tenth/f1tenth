@@ -113,8 +113,8 @@ private:
         if (publish_tf_)
         {
             geometry_msgs::msg::TransformStamped tf;
-            tf.header.frame_id = 'map';
-            tf.child_frame_id = 'base_link';
+            tf.header.frame_id = "map";
+            tf.child_frame_id = "base_link";
             tf.header.stamp = now();
             tf.transform.translation.x = p_out.x();
             tf.transform.translation.y = p_out.y();
