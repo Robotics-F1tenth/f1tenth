@@ -1,0 +1,9 @@
+microstrain_inertial_driver:
+  ros__parameters:
+    # The driver defaults to /dev/ttyACM0, which on this rig is the VESC -- the IMU and
+    # the VESC share a USB VID:PID (0483:5740), so ttyACM numbering is not stable. Opening
+    # the VESC made this node time out ("Unable to set device to idle") and also corrupted
+    # the VESC's serial stream. /dev/microstrain_main is the udev symlink for this IMU.
+    port: /dev/microstrain_main
+    filter_pps_source: 0        # 0 = Disabled — GNSS/PPS 하드웨어 없는 3DM-CV7-AHRS라 비활성화
+    filter_declination_source: 1  # 1 = None — CV7은 2(magnetic model) 미지원, 반드시 1 또는 3

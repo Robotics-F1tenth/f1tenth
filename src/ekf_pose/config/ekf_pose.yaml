@@ -10,7 +10,7 @@ ekf_pose_node:
     # ── 토픽 이름 ────────────────────────────────────────────
     imu_topic:       "/imu/data"     # 고속 IMU (보통 100-400 Hz)
     odom_topic:      "/odom"         # 휠 오도메트리 (속도 보정용)
-    mcl_pose_topic:  "/mcl_pose"     # 파티클 필터 위치 (느리지만 절대 정확도 높음)
+    mcl_pose_topic:  "/newmcl_pose"  # 파티클 필터 위치 (mcl_params.yaml의 pose_name과 일치해야 함)
 
     # ── 속도 업데이트 사용 여부 ───────────────────────────────
     use_odom_vel: true

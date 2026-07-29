@@ -19,8 +19,24 @@ public:
                                                                 0.0,1.0,0.0,
                                                                 0.0,0.0,1.0});
         this->declare_parameter<std::vector<double>>("translation", {0.0, 0.0, 0.0});
+        // Second stage of the chain calibration_v2.py solves:
+        //   T_map_base = T_map_mocap('rotation','translation')
+        //                  o T_mocap_point(measured)
+        //                  o T_point_base('tracked_point_to_base_*')
+        // Identity defaults keep the single-stage behaviour for setups that never ran the
+        // joint calibration.
+        this->declare_parameter<std::vector<double>>("tracked_point_to_base_rotation", {1.0,0.0,0.0,
+                                                                                       0.0,1.0,0.0,
+                                                                                       0.0,0.0,1.0});
+        this->declare_parameter<std::vector<double>>("tracked_point_to_base_translation", {0.0, 0.0, 0.0});
         this->declare_parameter<bool>("publish_tf", false);
         publish_tf_ = this->get_parameter("publish_tf").as_bool();
+        // Vertical axis of the incoming mocap stream. "z_up" matches ROS (REP-103) and is
+        // applied as identity. "y_up" is the OptiTrack/Motive default; without conversion
+        // the body's forward axis lands on ROS -Z and the pose renders stabbed into the
+        // ground. Applied BEFORE 'rotation'/'translation', which calibration_v2.py owns
+        // and solves as SE(2) (yaw + xy) -- that solver cannot absorb a 90 deg roll.
+        this->declare_parameter<std::string>("input_axes", "z_up");
 
         std::string input_topic = this->get_parameter("input_topic").as_string();
         output_frame_ = this->get_parameter("output_frame").as_string();
@@ -50,6 +66,46 @@ public:
         }
         std::cout << t_ << std::endl;
 
+        std::vector<double> rot_pb;
+        this->get_parameter("tracked_point_to_base_rotation", rot_pb);
+        if (rot_pb.size() != 9) {
+            RCLCPP_WARN(this->get_logger(),
+                "Parameter 'tracked_point_to_base_rotation' must have 9 elements; using identity.");
+            R_pb_.setIdentity();
+        }
+        else {
+            R_pb_ << rot_pb[0], rot_pb[1], rot_pb[2],
+                     rot_pb[3], rot_pb[4], rot_pb[5],
+                     rot_pb[6], rot_pb[7], rot_pb[8];
+        }
+        q_pb_ = Eigen::Quaterniond(R_pb_);
+        q_pb_.normalize();
+
+        std::vector<double> trans_pb;
+        this->get_parameter("tracked_point_to_base_translation", trans_pb);
+        if (trans_pb.size() != 3) {
+            RCLCPP_WARN(this->get_logger(),
+                "Parameter 'tracked_point_to_base_translation' must have 3 elements; using zero vector.");
+            t_pb_.setZero();
+        }
+        else {
+            t_pb_ = Eigen::Vector3d(trans_pb[0], trans_pb[1], trans_pb[2]);
+        }
+
+        const std::string input_axes = this->get_parameter("input_axes").as_string();
+        if (input_axes == "y_up") {
+            // R_x(+90 deg): (x, y, z)_mocap -> (x, -z, y)_ros, so mocap +Y becomes ROS +Z.
+            R_axis_ << 1.0, 0.0,  0.0,
+                       0.0, 0.0, -1.0,
+                       0.0, 1.0,  0.0;
+        } else if (input_axes != "z_up") {
+            RCLCPP_WARN(this->get_logger(),
+                "Unknown input_axes '%s'; expected \"z_up\" or \"y_up\". Using z_up.",
+                input_axes.c_str());
+        }
+        q_axis_ = Eigen::Quaterniond(R_axis_);
+        RCLCPP_INFO(this->get_logger(), "input_axes: %s", input_axes.c_str());
+
         if (publish_tf_)
         {
             tf_pub_.reset(new tf2_ros::TransformBroadcaster(this));
@@ -75,18 +131,24 @@ private:
         const auto & rb = msg->rigidbodies[0];
         const auto & pose_in = rb.pose;
 
-        // Full SE(3) on position: p' = R * p + t
+        // T_map_mocap o T_mocap_point o T_point_base -- the same chain calibration_v2.py
+        // fits, so its two solved stages are both honoured here.
         Eigen::Vector3d p(pose_in.position.x, pose_in.position.y, pose_in.position.z);
-        Eigen::Vector3d p_out = R_ * p + t_;
-
-
-        // Rotate orientation: q' = q_R * q_in
         Eigen::Quaterniond q_in(pose_in.orientation.w,
                                 pose_in.orientation.x,
                                 pose_in.orientation.y,
                                 pose_in.orientation.z);
         Eigen::Quaterniond q_R(R_); // assumes R_ is a proper rotation matrix
-        Eigen::Quaterniond q_out = q_R * q_in;
+
+        // Stage 1: tracked point in the map frame.
+        Eigen::Vector3d p1 = R_ * (R_axis_ * p) + t_;
+        Eigen::Quaterniond q1 = q_R * (q_axis_ * q_in);
+        q1.normalize();
+
+        // Stage 2: tracked point -> base_link. Composed on the right so the offset is
+        // rotated into the map frame by the stage-1 orientation.
+        Eigen::Vector3d p_out = p1 + q1 * t_pb_;
+        Eigen::Quaterniond q_out = q1 * q_pb_;
         q_out.normalize();
 
         Eigen::Matrix3d rot_mat = q_out.toRotationMatrix();
@@ -128,6 +190,11 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_;
     Eigen::Matrix3d R_ {Eigen::Matrix3d::Identity()};
     Eigen::Vector3d t_ {Eigen::Vector3d::Zero()};
+    Eigen::Matrix3d R_axis_ {Eigen::Matrix3d::Identity()};
+    Eigen::Quaterniond q_axis_ {Eigen::Quaterniond::Identity()};
+    Eigen::Matrix3d R_pb_ {Eigen::Matrix3d::Identity()};
+    Eigen::Quaterniond q_pb_ {Eigen::Quaterniond::Identity()};
+    Eigen::Vector3d t_pb_ {Eigen::Vector3d::Zero()};
     std::string output_frame_ {"mocap"};
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_pub_;
     bool publish_tf_;
