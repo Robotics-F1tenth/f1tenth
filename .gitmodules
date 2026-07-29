@@ -4,7 +4,7 @@
 [submodule "src/control/smppi_cuda_controller"]
 	path = src/control/smppi_cuda_controller
 	url = git@github.com:JangJunhyeok21/smooth-mppi-cuda.git
-	branch = feature/obstacle
+	branch = main
 [submodule "src/racecar_simulator"]
 	path = src/racecar_simulator
 	url = git@github.com:JangJunhyeok21/racecar_simulator.git
