@@ -314,7 +314,26 @@ class SE2OffsetEstimator(Node):
         # Calibration compares against /newmcl_pose, so mcl.launch.py is always up and
         # already publishes /map via nav2 map_server. Suppress this launch's map_publisher
         # to keep /map to a single latched publisher.
-        cmd = ['ros2', 'launch', self.launch_path, 'with_map:=false']
+        #
+        # This process is often started directly with python3, before the workspace
+        # overlay has been sourced.  In that case a bare `ros2 launch` only searches
+        # /opt/ros/humble and cannot find mocap_localization.  Source the same overlay
+        # explicitly in the child shell so the auto-started node has the ROS package
+        # environment it needs.
+        setup_files = [
+            '/opt/ros/humble/setup.bash',
+            '/home/a/f1tenth_ws/install/setup.bash',
+        ]
+        setup_files = [path for path in setup_files if os.path.exists(path)]
+        if not setup_files:
+            self.get_logger().error("No ROS setup file found; cannot start mocap launch")
+            return None
+
+        source_and_exec = (
+            ' '.join(f'source "${{{i}}}"' for i in range(1, len(setup_files) + 1))
+            + ' && exec ros2 launch "$' + str(len(setup_files) + 1) + '" with_map:=false'
+        )
+        cmd = ['bash', '-lc', source_and_exec, 'mocap_localization', *setup_files, self.launch_path]
         try:
             proc = subprocess.Popen(cmd)
             self.get_logger().info(f"Started launch: {' '.join(cmd)} (pid={proc.pid})")

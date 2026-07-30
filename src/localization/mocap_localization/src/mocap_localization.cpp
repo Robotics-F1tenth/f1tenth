@@ -1,4 +1,5 @@
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
@@ -14,6 +15,8 @@ public:
     MocapPosePublisher() : rclcpp::Node("mocap_pose_publisher") {
         // Parameters
         this->declare_parameter<std::string>("input_topic", "/rigid_bodies");
+        this->declare_parameter<std::string>("output_topic", "/mocap_pose");
+        this->declare_parameter<std::string>("rigid_body_name", "");
         this->declare_parameter<std::string>("output_frame", "map");
         this->declare_parameter<std::vector<double>>("rotation", {1.0,0.0,0.0,
                                                                 0.0,1.0,0.0,
@@ -39,6 +42,8 @@ public:
         this->declare_parameter<std::string>("input_axes", "z_up");
 
         std::string input_topic = this->get_parameter("input_topic").as_string();
+        output_topic_ = this->get_parameter("output_topic").as_string();
+        rigid_body_name_ = this->get_parameter("rigid_body_name").as_string();
         output_frame_ = this->get_parameter("output_frame").as_string();
 
         std::vector<double> rot;
@@ -112,7 +117,8 @@ public:
         }
 
         // Publisher
-        pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/mocap_pose", rclcpp::QoS(rclcpp::KeepLast(1)).reliable());
+        pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+            output_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable());
 
         // Subscriber
         sub_ = this->create_subscription<mocap4r2_msgs::msg::RigidBodies>(
@@ -120,7 +126,9 @@ public:
         std::bind(&MocapPosePublisher::callback, this, std::placeholders::_1));
 
 
-        RCLCPP_INFO(this->get_logger(), "mocap_pose_publisher started. Subscribing: %s, Publishing: /mocap_pose", input_topic.c_str());
+        RCLCPP_INFO(this->get_logger(),
+            "mocap_pose_publisher started. Subscribing: %s, body: '%s', publishing: %s",
+            input_topic.c_str(), rigid_body_name_.c_str(), output_topic_.c_str());
     }
 private:
     void callback(const mocap4r2_msgs::msg::RigidBodies::SharedPtr msg) {
@@ -128,7 +136,25 @@ private:
             // RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "No rigidbodies in message.");
             return;
         }
-        const auto & rb = msg->rigidbodies[0];
+        std::size_t selected_index = 0;
+        if (!rigid_body_name_.empty()) {
+            bool found = false;
+            for (std::size_t i = 0; i < msg->rigidbodies.size(); ++i) {
+                if (msg->rigidbodies[i].rigid_body_name == rigid_body_name_) {
+                    selected_index = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                    "Rigid body '%s' not found in the current message.",
+                    rigid_body_name_.c_str());
+                return;
+            }
+        }
+
+        const auto & rb = msg->rigidbodies[selected_index];
         const auto & pose_in = rb.pose;
 
         // T_map_mocap o T_mocap_point o T_point_base -- the same chain calibration_v2.py
@@ -188,6 +214,8 @@ private:
 
     rclcpp::Subscription<mocap4r2_msgs::msg::RigidBodies>::SharedPtr sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_;
+    std::string output_topic_ {"/mocap_pose"};
+    std::string rigid_body_name_;
     Eigen::Matrix3d R_ {Eigen::Matrix3d::Identity()};
     Eigen::Vector3d t_ {Eigen::Vector3d::Zero()};
     Eigen::Matrix3d R_axis_ {Eigen::Matrix3d::Identity()};
