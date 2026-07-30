@@ -1,11 +1,17 @@
 # 워크스페이스 통합 · 저장소 정리 계획
 
-최초: 2026-07-23 · 갱신: 2026-07-29 (driver 이식 로컬 커밋 완료, push/서브모듈 등록 대기)
-워크스페이스: `~/f1tenth_ws` (4호차)
+최초: 2026-07-23 · 갱신: 2026-07-30 (Phase A/B 완료, Phase C 3호차 이관 진행 중)
+워크스페이스: `~/f1tenth_ws` (4호차 기준 작성, 3호차 이관 작업 중)
 
-> **범위 조정**: driver 이식 검증 중 발견한 "deadman 떼도 계속 움직이는" 문제는
+> **범위 조정 1**: driver 이식 검증 중 발견한 "deadman 떼도 계속 움직이는" 문제는
 > 코드 통합과 무관한 별도 이슈라 [vesc-deadman-command-timeout.md](vesc-deadman-command-timeout.md)로
-> 분리했다. 이 문서는 저장소 통합·이관에만 집중한다.
+> 분리했다.
+>
+> **범위 조정 2**: `mocap_localization` 패키지 이름 변경(내용이 GT 발행/캘리브레이션만 남아
+> 이름과 안 맞음)은 팀 논의 + 대공사가 필요해 [mocap-package-rename.md](mocap-package-rename.md)로
+> 분리했다. 아직 미착수.
+>
+> 이 문서는 저장소 통합·이관에만 집중한다.
 
 ---
 
@@ -17,192 +23,103 @@
 ### rename으로 부수적으로 해결된 것
 
 이전 조사에서 "3세대 잔재"로 분류했던 `/home/a/f1tenth_ws/...` 참조 9곳이
-**이름이 바뀌면서 다시 유효해졌다.** 레이아웃 부분(`src/localization/f1_localization`
-→ `src/f1_localization`)도 이미 갱신돼 있어, 실제로 깨진 경로는 3개뿐이고 전부 inert:
+이름이 바뀌면서 다시 유효해졌다. 실제로 깨진 경로는 3개뿐이고 전부 inert
+(`als_ros/logs/pose_log.txt`, `als_ros/maps/slam_map/`, `navigation2/nav2_bringup/params`).
+→ 절대경로 제거(Phase D)는 중기 과제로 후순위.
 
-| 경로 | 왜 inert |
-|---|---|
-| `als_ros/logs/pose_log.txt` | `write_pose: false` |
-| `als_ros/maps/slam_map/` | SLAM 전용 |
-| `navigation2/nav2_bringup/params` | `amcl_launch.py` 폴백, 미사용 |
+### 정리한 잔여물
 
-→ **절대경로 제거(Phase D)의 긴급도는 내려갔다.** 다음 rename 때 또 깨지므로 중기 과제로는 유효.
-지금은 저장소 정리가 훨씬 급하다.
-
-### 정리할 잔여물
-
-`/home/a/f1tenth/` 가 남아있다. 내용은 `mocap_localization.cpp` 1개뿐이고
-워크스페이스 버전이 그것의 상위집합(calibration_v2 관련 코드 추가됨)임을 확인.
-→ **삭제 안전.**
+`/home/a/f1tenth/`는 `mocap_localization.cpp` 1개뿐이고 워크스페이스 버전이 상위집합임을 확인 → 삭제 안전.
 
 ---
 
-## 1. 저장소 연결 분석
+## 1. 저장소 연결 분석 (2026-07-30 최종 상태)
 
-트리 내 git 저장소 **8개**(최상위 포함). 최상위는 `Robotics-F1tenth/f1tenth`.
+트리 내 git 저장소 **7개**(최상위 포함, `mppi_controller` 제거 후). 최상위는 `Robotics-F1tenth/f1tenth`.
 
-### 연결됨 — 서브모듈 5개
+### 서브모듈 등록 상태
 
 | 경로 | 원격 | 브랜치 | 상태 |
 |---|---|---|---|
-| `src/f1_localization` | `heojy/f1_localization` | main | **dirty 8** (MCL 작업 미커밋) |
-| `src/perception` | `heojy/f1_perception` | `feature/acc-yaw-estimation` | clean ✓ |
-| `src/racecar_simulator` | `JangJunhyeok21/racecar_simulator` | detached HEAD | clean |
-| `src/control/mppi_controller` | `JangJunhyeok21/mppi-controller` | main | **작업트리 비어있음 (`.git`만)** |
-| `src/control/smppi_cuda_controller` | `JangJunhyeok21/smooth-mppi-cuda` | main | dirty 5, **브랜치 불일치** |
+| `src/f1_localization` | `heojy/f1_localization` | main | ✅ push 완료 (`9776585`), 포인터 갱신 완료 |
+| `src/perception` | `heojy/f1_perception` | `feature/acc-yaw-estimation` | ✅ push 완료 (`57cfe1f`), 포인터 갱신 완료 |
+| `src/vesc` | `Robotics-F1tenth/vesc` (fork) | `ros2` | ✅ 신규 등록 완료 (`d53d999`) |
+| `src/f1tenth_system` | `Robotics-F1tenth/f1tenth_system` | (main 계열, 커밋 `321f4c1`) | ✅ 신규 등록 + 포인터 갱신 완료 |
+| `src/control/smppi_cuda_controller` | `JangJunhyeok21/smooth-mppi-cuda` | `main` (일치 완료) | 개발 중, 포인터만 최신화됨 — 로컬 체크아웃은 `submodule update` 필요 |
+| `src/racecar_simulator` | `JangJunhyeok21/racecar_simulator` | detached HEAD | 포인터 갱신됨 — 로컬 체크아웃은 `submodule update` 필요 |
 
-문제 2건:
+### 제거됨 — `src/control/mppi_controller`
 
-- **`mppi_controller` 내용물이 없다.** 파일 7개가 전부 삭제 스테이징 상태.
-  `submodule update --init`이 안 됐거나 내용이 지워진 것.
-  쓰는 패키지면 복구, 안 쓰면 서브모듈 해제.
-  **방치하면 clone하는 사람마다 빈 패키지를 받는다.**
-- **`smppi_cuda_controller` 브랜치 불일치.** `.gitmodules`는 `feature/obstacle`인데 실제는 `main`.
-  둘 중 뭐가 맞는지 정해 일치시켜야 한다.
+2026-07-30, 안 쓰는 패키지로 확정돼 서브모듈 등록 자체를 해제했다 (`deinit` + `git rm` +
+`.git/modules` 정리, 커밋 `d881145`). 원격 저장소(`e753d76`)엔 실제로 파일이 멀쩡히 있었고
+—로컬에서만 누군가 삭제를 스테이징해놓고 커밋 안 한 상태였다— 그래서 "clone하면 빈 패키지를
+받는다"는 초기 판단은 부정확했다(다른 클론엔 영향 없었음). 그래도 안 쓰는 게 확정이라 등록 자체를 없앴다.
 
-### 연결 안 됨 — 3개
+### 등록하지 않고 유지 — `src/ackermann_mux`
 
-| 경로 | 원격 | 상태 | 위험 |
-|---|---|---|---|
-| `src/f1tenth_system` | `Robotics-F1tenth/f1tenth_system` | **미푸시 커밋 2 + dirty 2** | **최고** |
-| `src/vesc` | `f1tenth/vesc` (상류) | clean, 로컬커밋 0 | 낮음 |
-| `src/ackermann_mux` | `f1tenth/ackermann_mux` (상류) | clean, 로컬커밋 0 | 낮음 |
+- 원격: `f1tenth/ackermann_mux` (상류 그대로)
+- **의도적으로 서브모듈 미등록 상태 유지.** untracked embedded repo로 남겨두고 핀 해시만 부록 B에 기록.
+- 이유: 상류가 아직 수정 안 됐고, 서브모듈로 등록할 만한 변경이 없음 — 지금 등록해도 이득이 없음.
 
-**`src/f1tenth_system`이 가장 위험하다:**
+### f1tenth_system 안의 중첩 서브모듈 문제 — 해결 완료 (2026-07-30 확인)
 
-```
-30946d3 fix(odom): cancel vesc_to_odom's hardcoded speed negation, retune vesc params
-73c9f0d config(teleop): cap manual speed at 1.5 and disable the unused default profile
-+ 미커밋: joy_teleop.yaml (speed 1.5→4.5, steering 0.34→0.4788), vesc.yaml (주석)
-```
+`f1tenth_system` 자체 `.gitmodules`에 `vesc`/`ackermann_mux`/`teleop_tools`가 선언돼 있어서,
+최상위에 서브모듈로 등록한 뒤 `clone --recursive` 하면 이 3개가 채워지면서
+최상위 `src/vesc`·`src/ackermann_mux`와 패키지 이름이 충돌해 `colcon build`가 실패하는 문제가 있었다.
 
-푸시도 안 됐고 서브모듈 등록도 안 돼 있다.
-→ **`git clone --recursive`로 최상위를 받아도 주행에 필수인 드라이버 설정이 하나도 안 따라온다.
-이 작업은 현재 4호차 디스크에만 존재한다.**
+**해결 2단계 (둘 다 필요했다):**
+1. fork `Robotics-F1tenth/f1tenth_system`의 `humble-devel` 브랜치에서 `.gitmodules`와
+   3개 서브모듈 선언을 전부 제거하는 커밋(`321f4c1`)을 만들어 push.
+   (주의: 이 fork의 기본 브랜치는 `foxy-devel`이 아니라 실제 쓰는 `humble-devel`이었음 —
+   처음 `foxy-devel`에 잘못 커밋했다가 발견, `humble-devel`로 cherry-pick해서 재push함.)
+2. **이 워크스페이스의 최상위 포인터를 `e288c86` → `321f4c1`로 실제로 옮기는 것.**
+   1번만 하고 2번을 안 하면 이 워크스페이스는 여전히 옛 커밋(`e288c86`, 옛 `.gitmodules` 포함)을
+   가리키므로 recursive clone 충돌 위험이 **그대로 남는다** — 포크에 고침 커밋이 존재하는 것과
+   이 워크스페이스가 그 커밋을 가리키는 것은 별개다. 확인 후 바로 포인터를 옮겨 push 완료.
 
-`vesc`/`ackermann_mux`는 상류 그대로라 급하진 않지만 **핀 고정이 안 돼 있다.**
-재clone 시 상류가 바뀌면 `vesc_to_odom.cpp`의 하드코딩 부호 반전이 달라져 odom 부호 문제가 재발할 수 있다.
-
-### 중복 패키지 판정 — 뭐가 실제로 쓰이나 (확정)
-
-`vesc`/`ackermann_mux`가 두 군데 있는데, **최상위 `src/` 쪽만 쓰인다.**
-
-| 경로 | 실체 | 빌드됨? |
-|---|---|---|
-| `src/vesc/*` | vesc, vesc_driver, vesc_msgs, vesc_ackermann | **O — 실사용** |
-| `src/ackermann_mux` | ackermann_mux | **O — 실사용** |
-| `src/f1tenth_system/vesc` | **파일 0개** | X |
-| `src/f1tenth_system/ackermann_mux` | **파일 0개** | X |
-| `src/f1tenth_system/teleop_tools` | **파일 0개** | X (joy_teleop은 시스템 1.7.0 사용) |
-
-근거: `build/*/CMakeCache.txt`의 소스 경로가 전부 `src/vesc/…`, `src/ackermann_mux`를 가리킴.
-
-f1tenth_system 안의 3개는 **f1tenth_system 자체 `.gitmodules`에 선언된 서브모듈인데 init이 안 된 빈 디렉터리**다.
-→ **커밋 대상 아님.** 신경 쓸 것은 `src/f1tenth_system/f1tenth_stack` 뿐이다.
-
-> ⚠️ **서브모듈 등록 시 함정**: `f1tenth_system`을 최상위 서브모듈로 등록한 뒤 누군가
-> `clone --recursive` 하면 저 3개가 **채워지면서** `src/vesc`·`src/ackermann_mux`와
-> 패키지 이름이 충돌해 `colcon build`가 "Multiple packages found with the same package name"으로 실패한다.
-> → **fork인 `Robotics-F1tenth/f1tenth_system`의 `.gitmodules`에서 이 3개 선언을 제거**하는 것이 정답.
-> (이 워크스페이스는 최상위 `src/vesc`·`src/ackermann_mux`를 쓰므로 중첩본은 애초에 불필요)
-
-### 최상위 미추적
-
-| 대상 | 내용 |
-|---|---|
-| `config/` | `imu_params.yml` (IMU 시리얼 포트 고정) |
-| `integration/` | 이 문서 |
-| `src/control/pacejka_sysid/` | 신규 패키지 |
-| `src/localization/mocap_localization/calibration_v2.py` | mocap 캘리브 |
-
-### 최상위 스테이징 (미커밋)
-
-`src/localization/f1_localization` 구 복사본 삭제 73파일 + mocap 수정.
-`src/localization/mocap_localization`은 유지된다. → 별도 커밋으로 확정 필요.
+두 세션이 독립적으로 같은 결론(포인터를 `321f4c1`로)에 도달해 로컬 커밋이 서로 갈라졌었지만,
+목적지가 같아 충돌 없이 병합됐다 (`f833f40`).
 
 ---
 
-## 2. 드라이버 세팅 전략 (핵심 설계 결정)
+## 2. 드라이버 세팅 전략 (핵심 설계 결정 — 유지)
 
 ### 문제
 
-3호차 수동조작이 4호차보다 낫다 → 가져오고 싶다.
-그런데 `f1tenth_stack/config/vesc.yaml`에는 **성격이 다른 두 종류**가 섞여 있다:
+3호차 수동조작이 4호차보다 나아서 `f1tenth_stack/config/vesc.yaml`을 이식하고 싶었는데,
+이 파일엔 **차량별 물리 캘리브레이션**(서보 오프셋, 좌/우 게인, erpm 게인)과
+**구조/로직 수정**(odom 부호 반전 취소, port 경로)과 **운전 취향**(joy_teleop scale)이 섞여 있다.
+통째로 복사하면 서보 중립까지 넘어와 차가 비뚤게 달린다.
 
-| 종류 | 예시 | 공유 가능? |
-|---|---|---|
-| **차량별 물리 캘리브레이션** | `steering_angle_to_servo_offset: 0.44105`<br>`steering_angle_to_servo_gain_left/right`<br>`speed_to_erpm_gain: 3806.35` | **불가** — 서보 중립·모터·기어비가 개체마다 다름 |
-| **구조/로직 수정** | `vesc_to_odom_node`의 부호 반전 취소<br>`port: /dev/sensors/vesc` | 가능 — 코드 버그 회피, udev 규약 |
-| **운전 취향/한계** | joy_teleop `scale`(속도 4.5, 조향 0.4788)<br>`throttle_interpolator` 유무 | 대체로 가능 |
+### 원인 규명 완료 — 검증 완료 (4호차)
 
-**`vesc.yaml`을 통째로 복사하면 서보 중립까지 넘어와 4호차가 비뚤게 달린다.**
+- `ackermann_to_vesc.cpp`가 `steering_angle_to_servo_gain_left/right`를 declare하지 않아서
+  ROS 2가 미선언 파라미터를 조용히 무시, 실제 적용값은 단일 게인 `-1.0`뿐이었음 → 좌우 조향 비대칭의 원인.
+- `vesc_to_odom.cpp`의 하드코딩된 음수화 때문에, driver 버전(음수화 제거)으로 코드만 바꾸면
+  `speed_to_erpm_gain`도 양수로 같이 바꿔야 함 — **이식과 부호 정정은 반드시 동시에.**
 
-### 원인 규명 완료 — 코드가 yaml을 무시하고 있었다
+### 이식 결과 (4호차, 2026-07-29 실행 완료)
 
-`~/Downloads/driver/message.txt`(3호차 driver 세트 분석, 2026-07-28)의 진단을 **직접 검증했고 맞다.**
+- 좌/우 조향 게인 분리 후 양쪽 다 서보 한계(0.01/0.99) 도달 확인, 좌우 대칭 회복(85.4% 동일).
+- odom 부호: 전진 시 `/odom` linear.x 양수 확인 (+4462 eRPM → +1.1723, −4493 eRPM → −1.1804).
+- mux 우선권 정상 (joy 100 > nav 10, 값 안 섞임).
+- clipping 경고는 사라지지 않음 — 게인이 풀스틱에서 서보 한계를 살짝 넘도록 잡혀 있어(끝단 도달 보장)
+  양쪽 끝에서 대칭적으로 클립되는 게 정상. 판정 기준은 "경고 없음"이 아니라 "양쪽 다 0.01/0.99 도달".
 
-`vesc.yaml`에는 이 차의 실측 좌/우 조향 게인이 들어 있는데:
+### ⚠️ 3호차 이관 시 반드시 지킬 것
 
-```yaml
-steering_angle_to_servo_gain_left:  -1.05417
-steering_angle_to_servo_gain_right: -1.34250
-steering_angle_to_servo_gain:       -1.0
-```
+**f1tenth_system의 `vesc.yaml`/`joy_teleop.yaml`을 pull로 그대로 덮어쓰면 안 된다.**
 
-현재 `src/vesc`는 f1tenth 업스트림 pristine이라 **`_left`/`_right`를 declare하지 않는다.**
-검증: `ackermann_to_vesc.cpp:54`에 `declare_parameter<double>("steering_angle_to_servo_gain")` 하나뿐.
-ROS 2는 미선언 파라미터를 **에러도 경고도 없이 무시**하므로 실제 적용값은 `-1.0` 하나다.
+- `steering_angle_to_servo_offset`, `steering_angle_to_servo_gain_left/right`, `speed_to_erpm_gain`은
+  **차량별 실측값**이라 4호차 값이 3호차에 그대로 들어가면 안 됨.
+- 새 `src/vesc` 코드는 `_left`/`_right` 게인을 declare하므로, 3호차 yaml에 이 값이 없으면
+  4호차가 실제로 겪었던 것과 같은 패턴(미선언 시 조용히 무시) 위험이 있음.
+- odom 부호도 마찬가지로 **부호만** 새 로직에 맞춰 양수로 바꾸고, 크기(게인 magnitude)는 3호차 고유 실측값 유지.
 
-3호차 driver 버전에는 좌/우 분기가 있다 (검증: `driver/motor/vesc_ackermann/src/ackermann_to_vesc.cpp:53-56, 79-83`).
+→ **3호차 pull 전 반드시 `vesc.yaml`/`joy_teleop.yaml` 백업 → pull 후 차량별 값 복원 → 필요시 좌/우 게인 재실측.**
+(장기적으로는 `car3.yaml`/`car4.yaml`로 차량별 값을 분리해 이 문제 자체를 없애는 게 맞다.)
 
-**증상**: 좌우 조향 비대칭. 한쪽은 스틱 90%에서 이미 풀락, 반대쪽은 끝까지 밀어도 최대 타각에 못 감
-(계산: `+0.4788+0.44105 = 0.920` < `servo_max 0.99`).
-
-→ **"코드는 3호차에서, 캘리브레이션은 현재 값 유지"가 정확한 처방이다.**
-
-### ⛔ 함께 처리해야 하는 것 — odom 부호
-
-driver 버전은 `vesc_to_odom.cpp`의 하드코딩 음수화를 **제거**했다 (검증 완료):
-
-| | `vesc_to_odom.cpp` | yaml gain | 결과 |
-|---|---|---|---|
-| 현재 ws | `(-state.speed - offset)/gain` 음수화 **있음** | `-3806.35` | 정상 (상쇄) |
-| 이식 후 yaml 그대로 | 음수화 **없음** | `-3806.35` | ⛔ **부호 반전 → MCL 붕괴** |
-| 이식 후 yaml 정정 | 음수화 없음 | **`+3806.35`** | 정상 |
-
-**이식과 부호 정정은 반드시 동시에.** 크기 `3806.35`는 그대로이므로 캘리브 변경이 아니라 코드 변경에 딸린 정정이다.
-
-### 이식 범위 (message.txt §5 검증 결과 동의)
-
-**가져올 것 — `driver/motor/` → `src/vesc/` 소스 4개뿐:**
-- `vesc_ackermann/src/ackermann_to_vesc.cpp` + `include/.../ackermann_to_vesc.hpp` (좌/우 게인, 핵심)
-- `vesc_ackermann/src/vesc_to_odom.cpp` (음수화 제거 + QoS)
-- `vesc_driver/src/vesc_driver.cpp` (커맨드 QoS 10→1)
-
-**가져오면 안 되는 것 (특히 위험한 2개):**
-- `mux.yaml` — driver는 `input_mux/*`를 구독하는데 ws의 joy_teleop은 `teleop`으로 발행
-  → **수동조작이 완전히 죽는다.** 게다가 nav·joy 둘 다 `priority:100` 동점이라 deadman 우선권 소멸(안전 회귀).
-  현재 ws는 nav 10 / joy 100 (검증함) — **유지할 것.**
-- `sensors.yaml` — driver는 `/dev/ttyLIDAR` 시리얼, 이 차는 이더넷 `192.168.0.10:10940`
-- `joy_teleop.yaml`·`vesc.yaml` — 캘리브레이션 (3호차 값으로 덮임)
-- `teleop_tools` — driver는 1.2.1, 현재 시스템 1.7.0 사용 중 → **다운그레이드**
-- `f1tenth_system/ackermann_mux`, `motor/vesc`, `motor/vesc_msgs` — 내용 동일, 이름만 중복
-
-**보류**: `lidar`(urg_node2) / `imu`(stella_ahrs) / `new_imu`(microstrain)
-— 앞 둘은 현재 불필요, microstrain은 이미 시스템에 설치돼 있어 src에 넣으면 가린다.
-
-> message.txt가 배제한 항목도 확인함: `throttle_interpolator`는 **양쪽 bringup 모두 주석 처리**라
-> 조작감 차이의 원인이 아니다. (내가 앞서 유력 후보로 지목했던 가설은 틀렸다.)
-
-### 드라이버를 git에 올릴 것인가 → **올린다. 단 분리해서.**
-
-"개발 코드만 올리고 드라이버는 빼자"는 선택지는 **이번 사건이 정확히 그 결과다.**
-`src/vesc`가 버전관리 밖(embedded repo)이라 좌/우 게인 수정이 3호차에만 있었고,
-4호차는 1년 가까이 조향이 비대칭인 채로 굴러갔는데 **아무도 몰랐다.** 에러가 안 나니까.
-
-올리지 않으면 이번 이식도 손으로 복사한 게 되고, 5호차에서 또 반복된다.
-
-**단 성격에 따라 두는 곳을 나눈다:**
+### 권장 구조 (Phase D와 함께, 아직 미착수)
 
 ```
 src/vesc/  (fork → 서브모듈)          ← 코드. 좌/우 게인 분기, odom 음수화 제거, QoS
@@ -215,150 +132,111 @@ config/  (최상위, 차량별)
   car4.yaml                             ← 서보 오프셋, 좌/우 게인, erpm gain, imu_rotation
 ```
 
-`car4.yaml`에 들어갈 것 = **개체마다 실측해야 하는 값**:
-`steering_angle_to_servo_offset`, `steering_angle_to_servo_gain_left/right`,
-`speed_to_erpm_gain`, IMU 축 보정.
-
-launch에서 `parameters=[vesc.yaml, car4.yaml]` 순으로 넘기면 뒤가 앞을 덮는다.
-이번에 `mcl.launch.py`에서 쓴 **"yaml 뒤에 오버라이드를 덧붙이는"** 패턴과 동일.
-차량 선택은 launch 인자(`car:=car4`) 또는 환경변수.
+launch에서 `parameters=[vesc.yaml, car4.yaml]` 순으로 넘기면 뒤가 앞을 덮는다
+(`mcl.launch.py`에서 쓴 패턴과 동일). 차량 선택은 launch 인자(`car:=car4`) 또는 환경변수.
 
 > 이 구조를 갖추기 전까지는 **개별 값만 손으로 옮기고 파일 통째 복사는 금지.**
 
-`src/vesc`는 현재 f1tenth 업스트림 pristine이다. 이식하면 상류와 갈라지므로
-**`Robotics-F1tenth/vesc` fork를 만들어 서브모듈로 등록**해야 한다.
-(그래야 3호차도 `git pull`로 같은 코드를 받는다)
-
 ---
 
-## 3. 실행 계획
+## 3. 실행 계획 — 진행 상황
 
-### Phase A — 유실 방지 (최우선, 지금)
-
-**중요한 원칙**: `f1_localization`/`perception`은 **이미 등록된 서브모듈**이라 "서브모듈 등록" 단계가 없다.
-`vesc`(오늘 새로 이식)처럼 미등록인 것만 등록이 필요하다. 그리고 **등록/포인터 갱신은 반드시 push 이후**다 —
-최상위의 서브모듈 포인터는 커밋 SHA를 가리키는데, 그 SHA가 원격에 없으면 3호차가 `git pull`해도 못 받는다.
-순서: **저장소 안에서 commit → push → (신규면) 최상위에 등록 → 최상위에서 포인터 커밋.**
-
-진행 상황 (2026-07-29):
+### Phase A — 유실 방지: ✅ 완료
 
 | 저장소 | 로컬 커밋 | 푸시 | 최상위 등록 |
 |---|---|---|---|
-| `src/f1_localization` | ✅ `9776585` | ⬜ 대기 (사용자 확인 후) | 이미 등록됨, 포인터 갱신만 남음 |
-| `src/perception` | ✅ `57cfe1f` (이전 세션에 커밋됨, fetch로 상류 안 뒤처짐 확인) | ⬜ 대기 | 이미 등록됨, 포인터 갱신만 남음 |
-| `src/vesc` | ✅ `d53d999` | ⬜ 대기 (remote를 포크로 변경 필요) | ⬜ 미등록 |
-| `src/f1tenth_system` | ✅ `e288c86` (누적 3개) | ⬜ 대기 | ⬜ 미등록 |
+| `src/f1_localization` | `9776585` | ✅ | 포인터 갱신 완료 |
+| `src/perception` | `57cfe1f` | ✅ | 포인터 갱신 완료 |
+| `src/vesc` | `d53d999` | ✅ (fork로 remote 변경 후) | 신규 등록 완료 |
+| `src/f1tenth_system` | `321f4c1` | ✅ | 신규 등록 + 포인터 갱신 완료 |
 
-남은 작업:
+최상위 커밋 이력 (시간순):
+- `ca11ed1` — f1_localization/perception 포인터 갱신, vesc/f1tenth_system 신규 등록
+- `f9a6312` — config/, integration/, pacejka_sysid, calibration_v2.py 추가
+  (`git add -A`가 `src/ackermann_mux`를 embedded repo로 잘못 포함시킨 걸 `git rm --cached` + amend로 정정)
+- `bf4ff92` / `bd703d5` → 병합 `f833f40` — f1tenth_system 포인터를 `321f4c1`로 올리는 작업을
+  두 세션이 독립적으로 만들어 충돌 없이 병합. smppi_cuda_controller 브랜치를 `main`으로 정정한 것도 여기 포함.
+- `5907c68` / `d881145` → 병합 `75d6feb` — smppi_cuda_controller/racecar_simulator 포인터 갱신(원격)과
+  mppi_controller 서브모듈 제거(로컬)가 서로 다른 경로라 충돌 없이 병합.
 
-1. **`src/f1_localization` push** (커밋 완료, 브랜치 `main`)
-2. **`src/perception` push** (커밋 이미 있었음, 뒤처지지 않음 확인 완료 — 바로 push 가능)
-3. **`src/vesc` remote를 포크로 변경 후 push**
+`git push` 완료, 원격과 동기화됨 (HTTPS 자격증명이 이 환경에 없어 SSH URL로 직접 push).
+
+### Phase B — 저장소 구조 정리: ✅ 완료
+
+1. ✅ `f1tenth_system` 서브모듈 등록 완료
+2. ✅ `vesc` fork + 서브모듈 등록 완료
+3. ✅ f1tenth_system fork의 `.gitmodules`에서 중첩 vesc/ackermann_mux/teleop_tools 선언 제거,
+   **+ 이 워크스페이스의 최상위 포인터도 `321f4c1`로 갱신** (둘 다 해야 실제로 해결됨 — §1 참조)
+4. ✅ `mppi_controller` 서브모듈 완전 제거
+5. ✅ `smppi_cuda_controller` 브랜치 일치 (`.gitmodules` `main`, 팀원 확인 완료)
+6. `ackermann_mux` 핀 해시 부록 B에 기록 완료
+
+**남은 사소한 것**: `smppi_cuda_controller`·`racecar_simulator`는 포인터만 최신이고 로컬 작업트리는
+아직 이전 커밋 체크아웃 상태 (`git submodule status`에서 `+` 표시). 필요할 때
+`git submodule update --init src/control/smppi_cuda_controller src/racecar_simulator`로 동기화.
+다른 사람 작업 중인 패키지라 임의로 체크아웃 안 함.
+
+### Phase C — 3호차 이관: 진행 중
+
+**순서**: fork `.gitmodules` 정리 + 포인터 갱신(완료) → 3호차 로컬 감사 → 백업 → pull → 재빌드 → 차량별 값 검증
+
+#### 3호차 감사 중 발견한 문제 — smppi_cuda_controller 메타데이터 유실
+
+3호차에서 `git status`가 다음 에러로 전체 실패:
+```
+fatal: not a git repository: src/control/smppi_cuda_controller/../../../.git/modules/src/control/smppi_cuda_controller
+```
+
+원인 조사 결과:
+- `.gitmodules` 자체가 워킹 디렉토리에서 사라져 있었음 (`git show HEAD:.gitmodules`로 확인하니 이력엔 정상 존재 —
+  디스크에서만 삭제된 상태). **2호차 설정을 만지다 코드를 git이 아니라 물리적으로 복사해온 이력**이 원인으로 추정됨
+  (`smppi_cuda_controller/.git` 파일 타임스탬프가 `1970-01-01`, 즉 epoch 0 — rsync/tar류 복사의 전형적 증상).
+- `.gitmodules`는 `git checkout HEAD -- .gitmodules`로 즉시 복원 완료.
+- `smppi_cuda_controller`의 `.git/modules` 아래 실체는 여전히 없음 → 이 서브모듈 자체는 유실 확정.
+  3호차에서 이 패키지가 원래도 동작하지 않았음을 확인 → **로컬 상태 보존 없이 폐기하고 재초기화하기로 결정.**
+
+**해결 절차**:
+```bash
+git rm -f src/control/smppi_cuda_controller
+rm -rf src/control/smppi_cuda_controller
+rm -rf .git/modules/src/control/smppi_cuda_controller
+git -c submodule.ignore=all status   # fatal 없이 떠야 정상
+git submodule update --init src/control/smppi_cuda_controller   # main 브랜치로 재초기화
+```
+
+#### 남은 Phase C 절차
+
+1. **3호차 로컬 변경 감사** (smppi 재초기화 후 재실행):
+   ```bash
+   git status
+   git log --oneline @{u}..HEAD
+   for d in src/*/ src/control/*/; do
+     [ -e "$d/.git" ] && { echo "== $d"; git -C "$d" status -s; git -C "$d" log --oneline @{u}..HEAD 2>/dev/null; }
+   done
    ```
-   git -C src/vesc remote set-url origin git@github.com:Robotics-F1tenth/vesc.git
-   git -C src/vesc push origin ros2
+2. **드라이버 config 백업** (§2 경고 반영, pull 전 필수):
+   ```bash
+   cp src/f1tenth_system/f1tenth_stack/config/vesc.yaml ~/vesc_3호차_backup.yaml
+   cp src/f1tenth_system/f1tenth_stack/config/joy_teleop.yaml ~/joy_teleop_3호차_backup.yaml
    ```
-4. **`src/f1tenth_system` push** (origin 이미 포크 주소, `.pyc`/build 정리도 커밋에 포함됨)
-5. **`src/control/smppi_cuda_controller`** dirty 5 → 커밋 여부 판단 (별도)
-6. 1~4 푸시 후, 최상위에서:
-   - `vesc`·`f1tenth_system` 서브모듈 등록 (Phase B-1, B-2)
-   - `f1_localization`·`perception` 포인터 갱신 커밋
-   - 재구성 확정(스테이징된 73파일 삭제) + 신규 추가(`config/`, `integration/`, `pacejka_sysid`, `calibration_v2.py`)는
-     위와 **분리된 별도 커밋**으로 (성격이 다름)
-
-### Phase A' — 3호차 driver 코드 이식 (수동조작 수정)
-
-Phase A와 독립. 차를 **들어올린 상태**에서 검증할 것.
-
-1. **이식 전 증거 확보** (§2 진단의 직접 증명):
-   ```
-   ros2 param get /ackermann_to_vesc_node steering_angle_to_servo_gain_left
-   ```
-   → 지금은 "parameter not declared"로 **실패해야 정상**
-2. `src/vesc` 백업 (embedded repo라 ws의 `git checkout`으로 못 되돌림)
-3. `driver/motor/` → `src/vesc/` 소스 4개 덮어쓰기 (`.git`, `__pycache__` 제외)
-4. **`vesc.yaml`의 `vesc_to_odom_node` 블록 `-3806.35` → `+3806.35`** (3과 동시에)
-   주석도 "driver의 음수화를 제거했으므로 부호를 되돌림"으로 갱신
-   > ⚠️ **`steering_angle_to_servo_gain`(단일)은 지우지 말 것.** 이식 후 `ackermann_to_vesc`는
-   > 안 쓰지만 **`vesc_to_odom.cpp:68`이 여전히 declare한다**(서보 명령을 역산해 각속도 추정).
-   > 지우면 `UninitializedStaticallyTypedParameterException`으로 `vesc_to_odom_node`가 즉시 죽는다.
-   > (실제로 밟았던 함정)
-5. `colcon build --packages-select vesc_ackermann vesc_driver --symlink-install`
-6. 검증 **(2026-07-29 실행 완료 — 아래는 실측값)**:
-   - 이식 전 `param get …_left` → `Parameter not set`, 단일 gain만 `-1.0` ✔ 진단 확정
-   - 이식 후 → `left=-1.05417`, `right=-1.3425`, odom gain `+3806.35` ✔
-   - 속도 0으로 조향만 명령해 실측한 `/commands/servo/position`:
-
-     | 스틱 | 이식 전 | 이식 후 | 판정 |
-     |---|---|---|---|
-     | 좌 최대 (+0.4788) | −0.038 → clip 0.01 | **−0.0637 → clip 0.01** | 풀레인지 |
-     | 우 최대 (−0.4788) | **0.920 (풀락 미달)** | **1.0838 → clip 0.99** | 풀레인지 |
-
-     → **좌우 대칭 회복.** 사용자 관측(좌회전만 클리핑)과 정확히 일치했다.
-   - **clipping 경고는 사라지지 않는다** — message.txt §7.3의 "경고 소멸" 서술은 자기 계산과 모순.
-     게인이 풀스틱에서 서보 한계를 살짝 넘도록 잡혀 있어(끝단 도달 보장) **양쪽 끝에서 대칭적으로 클립**된다.
-     정상 동작이며, 판정 기준은 "경고 없음"이 아니라 **"양쪽 다 0.01/0.99에 도달"**이다.
-   - **odom 부호 — 바퀴 공중 상태에서 실측 확인**:
-
-     | 명령 | ERPM | `/odom` linear.x | 검산 (ERPM/3806.35) |
-     |---|---|---|---|
-     | 전진 1.0 | **+4462** | **+1.1723** | +1.172 ✔ |
-     | 후진 −1.0 | **−4493** | **−1.1804** | −1.180 ✔ |
-     | 정지 | 0 | 0 | ✔ |
-
-     전진에 양수. 크기도 `speed_to_erpm_gain`과 정확히 일치.
-   - **mux 우선권 확인**: `/drive`(prio 10)와 `/teleop`(prio 100)을 동시 발행하니
-     `/ackermann_cmd`에 **joy 값만** 나옴(48샘플 연속, 섞임 없음). deadman 우선권 정상.
-   - 조향 포화 스틱 비율 — 좌우 **동일 85.4%** (이식 전: 좌 90.0% / 우 도달 불가):
-     좌 `0.43105/1.05417 = 0.4089 rad`, 우 `0.54895/1.34250 = 0.4089 rad`.
-     서보 중립이 0.44105로 기하학적 중앙(0.5)이 아니라서 좌우 게인이 다른 것이고,
-     **두 게인 모두 필요 스트로크 대비 17% 오버슈트로 동일**하다 → 설계상 대칭.
-
-   > 측정 팁: `ros2 topic pub -1`은 discovery 경합으로 메시지가 유실된다.
-   > 포트 이후 커맨드 토픽 QoS가 `KeepLast(1)`이라 더 잘 드러난다. `-r 20`으로 유지 발행할 것.
-   > `ros2 topic echo --once`도 구독 시점 경합이 있어 `/odom`이 0으로 잡힐 수 있다 — 연속 로깅으로 확인.
-
-### Phase B — 저장소 구조 정리
-
-1. **`src/f1tenth_system` 서브모듈 등록** (자기 조직 fork라 바로 가능)
-   ```
-   git submodule add git@github.com:Robotics-F1tenth/f1tenth_system.git src/f1tenth_system
-   ```
-   **동시에 fork의 `.gitmodules`에서 `vesc`/`ackermann_mux`/`teleop_tools` 선언 제거**
-   (§1 중복 패키지 판정의 ⚠️ 참조 — recursive clone 시 이름 충돌 방지)
-2. **`src/vesc` fork + 서브모듈 등록** — Phase A' 이식으로 상류와 갈라지므로 필수.
-   `Robotics-F1tenth/vesc` 생성 → 이식 커밋 푸시 → 서브모듈 등록
-3. **`mppi_controller` 제거** (사용 안 함 확정):
-   ```
-   git submodule deinit -f src/control/mppi_controller
-   git rm -f src/control/mppi_controller
-   rm -rf .git/modules/src/control/mppi_controller
-   ```
-   → 빈 서브모듈이 사라져 clone하는 사람이 빈 패키지를 받지 않게 된다
-4. **`smppi_cuda_controller` 브랜치 일치**: 개발 중인 패키지.
-   `.gitmodules`의 `feature/obstacle`을 실제 HEAD인 `main`에 맞추거나, 반대로 브랜치를 되돌린다
-5. **`ackermann_mux`**: 상류 그대로(수정 없음)라 당분간 유지. **현재 해시를 부록 B에 기록**
-
-### Phase C — 3호차 이관
-
-Phase A·B 완료 후. **이름이 이미 같으므로 rename 단계가 사라져 난이도가 크게 낮아졌다.**
-
-1. **3호차 로컬 변경 감사 먼저.** 전 저장소 `git status` + `git log @{u}..HEAD`.
-   3호차에만 있는 미푸시 작업(특히 드라이버 세팅)을 먼저 건져낸다.
-2. 백업: `~/f1tenth_ws` 통째로 복사
-3. `git pull` + `git submodule update --init --recursive`
-4. **`rm -rf build/ install/ log/` 후 전체 재빌드** (`cc` alias)
-5. **차량별 확인 — 4호차 값을 그대로 가정하지 말 것:**
+3. 백업: `~/f1tenth_ws` 통째로 복사
+4. `git pull` + `git submodule update --init --recursive`
+5. **드라이버 config 복원**: `vesc.yaml`의 서보 오프셋/좌우 게인/erpm 게인은 백업본(3호차 실측값) 기준으로 복원,
+   단 `speed_to_erpm_gain` 부호는 새 코드(음수화 제거)에 맞게 양수인지 재확인.
+   `joy_teleop.yaml`의 `scale`도 3호차 값으로 복원.
+   백업본에 `_left`/`_right` 게인이 애초에 없었다면 3호차에서 신규 실측 필요.
+6. `rm -rf build/ install/ log/` 후 전체 재빌드
+7. **차량별 확인 — 4호차 값을 그대로 가정하지 말 것:**
    - IMU 축: 정지 시 `linear_acceleration.z`가 `-9.8`이면 `imu_rotation_roll:=180`, `+9.8`이면 `0`
    - odom 부호: 전진 시 `/odom` `twist.linear.x`가 양수인지
    - 서보 중립/조향 게인: 3호차 값 유지
-6. **udev 룰 수동 적용** (git 밖):
+8. **udev 룰 수동 적용** (git 밖):
    `/etc/udev/rules.d/99-vesc6.rules`에 `ATTRS{product}=="ChibiOS/RT Virtual COM Port"` 추가
    → `udevadm control --reload-rules`
    VESC와 IMU가 같은 `0483:5740`이라 없으면 `/dev/sensors/vesc`가 IMU를 가리킬 수 있다.
    (4호차 백업: `99-vesc6.rules.bak`)
 
-### Phase D — 절대경로 제거 (중기)
+### Phase D — 절대경로 제거 (중기, 미착수)
 
 rename으로 급한 불은 꺼졌으므로 후순위.
 
@@ -376,6 +254,7 @@ rename으로 급한 불은 꺼졌으므로 후순위.
   ```
   같이 정리: 중복 정의(`sis`,`cb`,`eb`,`sb`가 2번씩), 깨진 `resource` 경로(`src/driver/...`),
   `lidar`(urg_node2) vs `sensors`(urg_node) 불일치 확인
+- §2의 `car3.yaml`/`car4.yaml` 차량별 드라이버 설정 분리도 여기서 함께
 
 ---
 
@@ -394,29 +273,30 @@ done
 grep -rn "/home/a/f1tenth[^_]" src/ config/ | grep -vE "/(build|install|log)/|__pycache__"
 ```
 
-주행 검증 (양 차량 동일):
+주행 검증 (양 차량 동일, **아직 3호차에서 미실행**):
 1. `sensors` → `imu` → `mcl`
 2. `ros2 run tf2_ros tf2_echo map laser` — 벽시계 타임스탬프로 갱신
-3. 좌회전 시 rviz pose가 **같은 방향**으로 회전
-4. 전진 시 `/odom` `twist.linear.x` **양수**, 추정도 전진
+3. 좌회전 시 rviz pose가 같은 방향으로 회전
+4. 전진 시 `/odom` `twist.linear.x` 양수, 추정도 전진
 5. bag: `bag_mcl.launch.py` + `ros2 bag play --clock`
    구 bag은 `imu_name:=ekf/imu/data imu_rotation_roll:=0.0`
 
 ---
 
-## 5. 리스크
+## 5. 리스크 (최종 갱신)
 
-| 리스크 | 영향 | 완화 |
+| 리스크 | 영향 | 상태 |
 |---|---|---|
-| **`f1tenth_system` 미푸시 + 미등록** | 드라이버 설정 전량 유실, 3호차 이관 불가 | **Phase A-1 최우선** |
-| **driver 이식 시 odom 부호 정정 누락** | 전진 시 `/odom` 음수 → **MCL 붕괴** | Phase A'-4를 이식과 **동시에** |
-| `mux.yaml` 이식 | **수동조작 완전 정지** + deadman 우선권 소멸 | 이식 목록에서 제외 (§2) |
-| `vesc.yaml` 통째 복사 | 서보 중립이 넘어와 차가 비뚤게 달림 | 개체값/공유값 분리 (§2) |
-| **f1tenth_system recursive clone** | 중첩 vesc/ackermann_mux가 채워져 패키지명 충돌 → 빌드 실패 | fork `.gitmodules`에서 3개 선언 제거 (Phase B-1) |
-| `mppi_controller` 빈 서브모듈 | clone하는 사람마다 빈 패키지 | Phase B-3에서 제거 |
-| `ackermann_mux` 미핀 | 상류 변경 시 예기치 않은 동작 | 해시 기록 |
-| 3호차 미푸시 작업 유실 | 작업 손실 | Phase C-1 감사 선행 |
-| `MCL.h` 재빌드 누락 | 조용히 구 동작 | 커밋 메시지에 명시 |
+| `f1tenth_system` 미푸시 + 미등록 | 드라이버 설정 전량 유실, 3호차 이관 불가 | ✅ 해결 |
+| driver 이식 시 odom 부호 정정 누락 | 전진 시 `/odom` 음수 → MCL 붕괴 | ✅ 해결, 4호차 실측 검증 완료 |
+| `mux.yaml` 이식 | 수동조작 완전 정지 + deadman 우선권 소멸 | 이식 목록에서 제외 (유지) |
+| `vesc.yaml` 통째 복사 | 서보 중립이 넘어와 차가 비뚤게 달림 | ⚠️ **3호차 이관 시 재발 위험 — §2, Phase C-5 참조** |
+| f1tenth_system recursive clone 시 패키지명 충돌 | 중첩 vesc/ackermann_mux가 채워져 빌드 실패 | ✅ 해결 — fork `.gitmodules` 제거 + 이 워크스페이스 포인터 갱신 (둘 다 완료) |
+| `mppi_controller` 빈 서브모듈 | (실제로는 로컬 전용 문제였음) | ✅ 서브모듈 자체 제거로 정리 |
+| `smppi_cuda_controller` 메타데이터 유실 | 3호차 `git status` 전체 실패 | ⬜ 3호차에서 재초기화 필요 (Phase C 참조) |
+| `ackermann_mux` 미핀 | 상류 변경 시 예기치 않은 동작 | 해시 기록 완료, 유지 |
+| 3호차 미푸시 작업 유실 | 작업 손실 | ⬜ 감사 필요 (smppi 재초기화 후) |
+| `MCL.h` 재빌드 누락 | 조용히 구 동작 | 커밋 메시지에 명시됨 |
 
 **되돌리기**: Phase A~B는 각 저장소 `git revert`. Phase C는 3호차 백업 복원.
 
@@ -424,10 +304,7 @@ grep -rn "/home/a/f1tenth[^_]" src/ config/ | grep -vE "/(build|install|log)/|__
 
 ## 부록 A — 커밋 메시지 (실제 커밋됨)
 
-이 절의 메시지는 초안이 아니라 **실제로 로컬 커밋에 사용된 것**이다 (2026-07-29). `git log -1`로 확인 가능.
-
 ### `src/f1_localization` — commit `9776585`
-
 ```
 fix(mcl): correct IMU yaw rate and split bag/live config into launch args
 
@@ -467,7 +344,6 @@ Header change -- rebuild als_ros.
 ```
 
 ### `src/vesc` — commit `d53d999`
-
 ```
 feat: split steering gain per side, drop odom negation, tighten command QoS
 
@@ -500,8 +376,7 @@ Verified on 4호차 with the wheels off the ground: left/right servo endpoints
 -1.1804, mux still hands priority to the joystick over nav.
 ```
 
-### `src/f1tenth_system` — commit `e288c86`
-
+### `src/f1tenth_system` — commit `e288c86` (코드/설정), `321f4c1` (fork, 서브모듈 정리)
 ```
 config: restore positive odom gain, document the steering gain split
 
@@ -523,12 +398,26 @@ measured full lock. Also fixed the speed comment, which still described the old
 
 Ignore the colcon build/install/log left by a nested build in this repo.
 ```
+```
+chore: drop nested vesc/ackermann_mux/teleop_tools submodules (name conflicts with workspace src/)
+```
+(최초 `foxy-devel`에 잘못 커밋(`0ee29e2`)했다가 발견, `humble-devel`로 cherry-pick하여 재작성 후 push)
 
-### 최상위 (신규 추가분)
+### 최상위 — 시간순 커밋
 
 ```
-chore: track driver config, integration notes and pacejka_sysid
+ca11ed1  chore(submodules): bump f1_localization and perception pointers to pushed commits
+f9a6312  chore: track driver config, integration notes and pacejka_sysid
+bd703d5  chore(submodules): bump f1tenth_system to drop nested vesc/ackermann_mux/teleop_tools declarations
+bf4ff92  chore(submodules): track smppi main and drop nested drivers                          (원격, 병합됨)
+f833f40  Merge (위 둘, 같은 목적지로 수렴해 충돌 없음)
+d881145  chore(submodules): remove unused mppi_controller submodule
+5907c68  chore(submodules): update smppi_cuda_controller and racecar_simulator subproject commits  (원격, 병합됨)
+75d6feb  Merge (위 둘, 다른 경로라 충돌 없음)
+```
 
+`f9a6312`의 `chore: track driver config...` 본문:
+```
 config/imu_params.yml pins the Microstrain to /dev/microstrain_main: it and the
 VESC both enumerate as 0483:5740, so the driver's ttyACM0 default opened the
 VESC, timed out, and corrupted its serial stream.
@@ -536,17 +425,47 @@ VESC, timed out, and corrupted its serial stream.
 Also adds integration/ (workspace + repo consolidation plan),
 src/control/pacejka_sysid, and the mocap calibration_v2 script.
 ```
+(주: 최초 커밋 시 `git add -A`가 `src/ackermann_mux`를 embedded repo로 잘못 포함시켜서
+`git rm --cached src/ackermann_mux` 후 amend로 정정함.)
 
 ---
 
 ## 부록 B — 저장소 핀 기록
 
-미등록 저장소의 현재 커밋 (2026-07-29 기준, 재현·복구용):
+미등록/참고용 저장소의 커밋 (2026-07-30 기준):
 
 ```
-src/vesc           153998df8545fe1781b975df88e411b4e71d4bfe   # f1tenth/vesc 상류 pristine (이식 전)
-src/ackermann_mux  b3c0b083ac03aa8c648537d7e4d22608fcd3440c   # f1tenth/ackermann_mux 상류
-src/f1tenth_system 30946d3158cad9d649b4fcba42776f7b9a901b3b   # 미푸시 (odom 부호 커밋)
+src/ackermann_mux            b3c0b083ac03aa8c648537d7e4d22608fcd3440c   # f1tenth/ackermann_mux 상류, 의도적으로 미등록 유지
+src/vesc (이식 전 pristine)   153998df8545fe1781b975df88e411b4e71d4bfe   # Phase A' 이식 직전 상태. 문제 생기면 이 커밋으로 되돌림
 ```
 
-`src/vesc` 해시는 **Phase A' 이식 직전 상태**다. 이식 후 문제가 생기면 이 커밋으로 되돌린다.
+---
+
+## 부록 C — 트러블슈팅 로그
+
+참고용 — 다음에 비슷한 증상 만나면 여기부터 확인.
+
+1. **VSCode 계정 전환 시 세션 위치**: Claude Code 인증은 워크스페이스가 아니라 OS 전역
+   (macOS Keychain / Linux·Windows `~/.claude/.credentials.json`)에 저장됨. `/logout` → `/login`으로 전환,
+   VSCode 확장은 반영 안 되면 재시작 필요.
+2. **`.gitmodules` 워킹 디렉토리에서만 소실**: `git show HEAD:.gitmodules`로 이력엔 있는데 디스크에서 사라진 상태
+   확인 → `git checkout HEAD -- .gitmodules`로 즉시 복원 가능. 원인은 2호차 설정 작업 중 코드를 git이 아니라
+   물리적으로 복사해온 이력으로 추정 (`.git` gitlink 파일 타임스탬프가 `1970-01-01`, rsync/tar 복사의 전형적 증상).
+3. **서브모듈 `.git/modules` 실체 유실**: gitlink는 있는데 `.git/modules/.../서브모듈명` 디렉토리가 없으면
+   `fatal: not a git repository` 로 최상위 `git status`까지 통째로 실패함. 로컬 작업 보존이 필요 없다고 확정되면
+   `git rm -f <path>` + 워킹 디렉토리 삭제 + `.git/modules` 아래 잔재 삭제 후 `submodule update --init`으로 재초기화.
+4. **fork 저장소 기본 브랜치 확인 필수**: `git clone`은 기본 브랜치(`HEAD`)를 체크아웃하는데 이게 실제 작업 브랜치와
+   다를 수 있음(`f1tenth_system` fork는 기본이 `foxy-devel`, 실제 필요한 건 `humble-devel`). push 전
+   `git branch -r`로 확인.
+5. **`git add -A`는 이 저장소에서 위험**: 아직 서브모듈로 등록 안 한 embedded repo(`ackermann_mux` 등)가
+   섞여 있는 한, `git add -A`가 그걸 그대로 커밋에 포함시켜버림 (`git rm --cached`로 사후 정정 가능하나
+   애초에 경로를 명시해서 add하는 게 안전).
+6. **HTTPS 원격 push가 이 셸 환경에서 막힐 수 있음**: `git fetch`/`push`가
+   `could not read Username for 'https://github.com'`로 실패하면 자격증명 헬퍼가 없는 것.
+   `git push git@github.com:<org>/<repo>.git HEAD:main` 처럼 SSH URL을 직접 지정하면 우회 가능
+   (SSH agent에 키가 등록돼 있다면). 단 이 방식은 로컬 `refs/remotes/origin/main`을 갱신하지 않으므로,
+   이후 `@{u}..HEAD` 비교는 stale할 수 있다 — 정확한 비교가 필요하면 같은 방식으로 fetch부터 다시 할 것.
+7. **서로 다른 세션이 같은 문제를 독립적으로 고치면 충돌 없이 병합될 수 있다**: 두 세션이 각자
+   `f1tenth_system` 포인터를 `321f4c1`로 옮기는 커밋을 만들었는데, 목표 지점이 같아 3-way merge가
+   충돌 없이 처리됨. 다만 이건 운이 좋았던 경우이고, 여러 세션/터미널에서 동시에 같은 저장소를 만지고
+   있다면 작업 전 `git fetch` + `git log HEAD..origin/main`으로 먼저 확인하는 습관이 안전하다.
