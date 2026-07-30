@@ -11,7 +11,6 @@ def generate_launch_description():
     pkg_share = get_package_share_directory('mocap_localization')
     print(pkg_share, flush=True)
     params_file = os.path.join(pkg_share, 'params', 'params.yaml')
-    params2_file = os.path.join(pkg_share, 'params', 'params2.yaml')
 
     # This launch is self-contained by default (map_publisher included) so RViz has a map
     # when mocap runs alone. mcl.launch.py brings its own map via nav2 map_server, so pass
@@ -47,19 +46,11 @@ def generate_launch_description():
         executable='mocap_localization',
         name='mocap_localization1',
         output='screen',
-        parameters=[params_file],
-    )
-    localization2 = Node(
-        package='mocap_localization',
-        executable='mocap_localization',
-        name='mocap_localization2',
-        output='screen',
-        parameters=[params2_file],
+        parameters=[params_file, {'publish_tf': False}],
     )
     ld = LaunchDescription()
     ld.add_action(declare_with_map)
     ld.add_action(map_publisher)
     # ld.add_action(map_server)
     ld.add_action(localization1)
-    ld.add_action(localization2)
     return ld

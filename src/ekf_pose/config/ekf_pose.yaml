@@ -3,7 +3,7 @@ ekf_pose_node:
 
     # ── 출력 설정 ────────────────────────────────────────────
     publish_rate: 200.0        # [Hz] EKF 위치 출력 Hz (IMU 기반 예측으로 고속 가능)
-    publish_tf:   true         # map → base_link TF 발행 여부
+    publish_tf:   false         # map → base_link TF 발행 여부
     map_frame:    "map"
     base_frame:   "base_link"
 

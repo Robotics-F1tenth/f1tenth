@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import math
-import subprocess
 import sys
 import threading
 import termios
@@ -235,16 +234,13 @@ class SE2OffsetEstimator(Node):
         self.obj = int(self.get_parameter('obj').value)
 
         if self.obj == 1:
-            self.launch_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/launch/mocap_localization.launch.py'
             self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/params/params.yaml'
         elif self.obj == 2:
-            self.launch_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/launch/mocap_localization2.launch.py'
             self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/params/params2.yaml'
         else:
-            self.launch_path = None
             self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/params/params.yaml'
             self.get_logger().warn(
-                f"obj={self.obj} is invalid. No launch will be started. Fallback to obj=1 params."
+                f"obj={self.obj} is invalid. Fallback to obj=1 params."
             )
             self.obj = 1
 
@@ -280,7 +276,9 @@ class SE2OffsetEstimator(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to reset params: {e}")
 
-        self.launch_proc = self.start_launch()
+        self.get_logger().info(
+            f"Start mocap_launch{self.obj} separately after this node resets the params file."
+        )
 
         self.sub_mcl = self.create_subscription(PoseStamped, self.mcl_topic, self.cb_mcl, 10)
         self.sub_mocap = self.create_subscription(PoseStamped, self.mocap_topic, self.cb_mocap, 10)
@@ -303,56 +301,6 @@ class SE2OffsetEstimator(Node):
         except Exception:
             pass
         super().destroy_node()
-
-    def start_launch(self):
-        if self.launch_path is None:
-            self.get_logger().warn("launch_path is None (skip launch)")
-            return None
-        if not os.path.exists(self.launch_path):
-            self.get_logger().warn(f"Launch file not found: {self.launch_path} (skip)")
-            return None
-        # Calibration compares against /newmcl_pose, so mcl.launch.py is always up and
-        # already publishes /map via nav2 map_server. Suppress this launch's map_publisher
-        # to keep /map to a single latched publisher.
-        #
-        # This process is often started directly with python3, before the workspace
-        # overlay has been sourced.  In that case a bare `ros2 launch` only searches
-        # /opt/ros/humble and cannot find mocap_localization.  Source the same overlay
-        # explicitly in the child shell so the auto-started node has the ROS package
-        # environment it needs.
-        setup_files = [
-            '/opt/ros/humble/setup.bash',
-            '/home/a/f1tenth_ws/install/setup.bash',
-        ]
-        setup_files = [path for path in setup_files if os.path.exists(path)]
-        if not setup_files:
-            self.get_logger().error("No ROS setup file found; cannot start mocap launch")
-            return None
-
-        source_and_exec = (
-            ' '.join(f'source "${{{i}}}"' for i in range(1, len(setup_files) + 1))
-            + ' && exec ros2 launch "$' + str(len(setup_files) + 1) + '" with_map:=false'
-        )
-        cmd = ['bash', '-lc', source_and_exec, 'mocap_localization', *setup_files, self.launch_path]
-        try:
-            proc = subprocess.Popen(cmd)
-            self.get_logger().info(f"Started launch: {' '.join(cmd)} (pid={proc.pid})")
-        except Exception as e:
-            self.get_logger().warn(f"Failed to start launch: {e}")
-            return None
-
-        # Popen succeeds even when `ros2 launch` is about to die on PackageNotFoundError
-        # (workspace overlay not sourced). Without this check the launch exits silently,
-        # no mocap node ever comes up, and RViz keeps rendering the last stale pose.
-        try:
-            rc = proc.wait(timeout=2.0)
-        except subprocess.TimeoutExpired:
-            return proc  # still running after 2s -> came up fine
-        self.get_logger().error(
-            f"Launch exited immediately (code={rc}). Source the workspace first: "
-            f"source /home/a/f1tenth_ws/install/setup.bash"
-        )
-        return None
 
     def stamp_to_sec(self, stamp):
         return float(stamp.sec) + float(stamp.nanosec) * 1e-9
@@ -390,12 +338,6 @@ class SE2OffsetEstimator(Node):
             self.get_logger().warn("Need at least 3 samples. Nothing to save.")
         else:
             self.report_and_save()
-
-        try:
-            if self.launch_proc is not None and self.launch_proc.poll() is None:
-                self.launch_proc.terminate()
-        except Exception:
-            pass
 
         rclpy.shutdown()
 

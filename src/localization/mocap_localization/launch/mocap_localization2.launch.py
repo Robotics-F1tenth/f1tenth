@@ -20,7 +20,7 @@ def generate_launch_description():
             executable='mocap_localization',
             name='mocap_localization2',
             output='screen',
-            parameters=[params_file],
+            parameters=[params_file, {'publish_tf': False}],
         )
 
     return LaunchDescription([declare_with_map, localization2])
