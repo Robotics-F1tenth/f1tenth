@@ -5,8 +5,10 @@
     output_topic: "/mocap_pose1"
     output_frame: "map"
     input_axes: y_up
-    rotation: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-    translation: [0.0, 0.0, 0.0]
+    rotation: [0.0008592841780292034, 0.9999996308152825, 0.0, -0.9999996308152825, 0.0008592841780292034, 0.0, 0.0, 0.0,
+      1.0]
+    translation: [0.060460212951978926, -4.744780942586391, 0.0]
     publish_tf: false
-    tracked_point_to_base_rotation: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-    tracked_point_to_base_translation: [0.0, 0.0, 0.0]
+    tracked_point_to_base_rotation: [0.9987414149087604, -0.05015561928684846, 0.0, 0.05015561928684846, 0.9987414149087604,
+      0.0, 0.0, 0.0, 1.0]
+    tracked_point_to_base_translation: [-0.0367137554083112, -0.06464605162844878, 0.0]
