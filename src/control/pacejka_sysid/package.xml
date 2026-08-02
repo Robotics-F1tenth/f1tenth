@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>pacejka_sysid</name>
+  <version>0.1.0</version>
+  <description>
+    On-track Pacejka tire parameter identification, ported to ROS 2 Humble from
+    ForzaETH On-Track-SysID (github.com/ForzaETH/On-Track-SysID, arXiv:2411.17508).
+    주행 데이터로 타이어 Pacejka 계수를 식별해 SMPPI CUDA 컨트롤러에 반영한다.
+  </description>
+  <maintainer email="jangjunhyeok518@gmail.com">a</maintainer>
+  <license>MIT</license>
+  <url type="website">https://github.com/ForzaETH/On-Track-SysID</url>
+
+  <depend>rclpy</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <depend>python3-numpy</depend>
+  <depend>python3-scipy</depend>
+  <depend>python3-yaml</depend>
+  <depend>python3-matplotlib</depend>
+  <depend>python3-tqdm</depend>
+
+  <!-- torch 는 rosdep/apt 키가 없다. Jetson 용 휠이 이미 설치되어 있다 (torch 2.8.0, CUDA 12.6). -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

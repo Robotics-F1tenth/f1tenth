@@ -1,5 +1,0 @@
-lifecycle_manager_localization:
-  ros__parameters:
-    autostart: true
-    use_sim_time: false
-    node_names: ["map_server"]

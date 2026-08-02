@@ -1,10 +1,7 @@
-[submodule "src/control/mppi_controller"]
-	path = src/control/mppi_controller
-	url = git@github.com:JangJunhyeok21/mppi-controller.git
 [submodule "src/control/smppi_cuda_controller"]
 	path = src/control/smppi_cuda_controller
 	url = git@github.com:JangJunhyeok21/smooth-mppi-cuda.git
-	branch = feature/obstacle
+	branch = main
 [submodule "src/racecar_simulator"]
 	path = src/racecar_simulator
 	url = git@github.com:JangJunhyeok21/racecar_simulator.git
@@ -14,4 +11,11 @@
 	branch = feature/acc-yaw-estimation
 [submodule "src/f1_localization"]
 	path = src/f1_localization
-	url = https://github.com/heojy/f1_localization.git
+	url = git@github.com:heojy/f1_localization.git
+[submodule "src/vesc"]
+	path = src/vesc
+	url = git@github.com:Robotics-F1tenth/vesc.git
+	branch = ros2
+[submodule "src/f1tenth_system"]
+	path = src/f1tenth_system
+	url = git@github.com:Robotics-F1tenth/f1tenth_system.git

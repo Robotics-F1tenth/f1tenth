@@ -1,4 +1,7 @@
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
@@ -9,6 +12,16 @@ def generate_launch_description():
     print(pkg_share, flush=True)
     params_file = os.path.join(pkg_share, 'params', 'params.yaml')
 
+    # This launch is self-contained by default (map_publisher included) so RViz has a map
+    # when mocap runs alone. mcl.launch.py brings its own map via nav2 map_server, so pass
+    # `with_map:=false` when running both -- otherwise /map gets two latched publishers.
+    with_map = LaunchConfiguration("with_map")
+    declare_with_map = DeclareLaunchArgument(
+        "with_map",
+        default_value="true",
+        description="Publish /map from this launch. Set false when mcl.launch.py already provides it.",
+    )
+
     mcl_params_file = os.path.join(get_package_share_directory('als_ros'), "params", "mcl_params.yaml")
     print(mcl_params_file, flush=True)
     map_publisher = Node(
@@ -17,6 +30,7 @@ def generate_launch_description():
         name="map_publisher",
         output="screen",
         parameters=[mcl_params_file],
+        condition=IfCondition(with_map),
     )
     # map_server_params_file = os.path.join(get_package_share_directory('als_ros'), "params", "map.yaml")
     # map_server = Node(
@@ -27,16 +41,16 @@ def generate_launch_description():
     #     parameters=[map_server_params_file]
     # )
     
-    localization = Node(
-            package='mocap_localization',
-            executable='mocap_localization',
-            name='mocap_localization',
-            output='screen',
-            parameters=[params_file]
-        )
-    
+    localization1 = Node(
+        package='mocap_localization',
+        executable='mocap_localization',
+        name='mocap_localization1',
+        output='screen',
+        parameters=[params_file, {'publish_tf': False}],
+    )
     ld = LaunchDescription()
+    ld.add_action(declare_with_map)
     ld.add_action(map_publisher)
     # ld.add_action(map_server)
-    ld.add_action(localization)
+    ld.add_action(localization1)
     return ld

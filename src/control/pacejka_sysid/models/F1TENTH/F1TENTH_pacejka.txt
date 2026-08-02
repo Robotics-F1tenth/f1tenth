@@ -1,0 +1,35 @@
+# Adapted from ForzaETH On-Track-SysID (github.com/ForzaETH/On-Track-SysID), arXiv:2411.17508
+# 원본 models/<racecar_version>/<racecar_version>_pacejka.txt 템플릿을 우리 차량 값으로 채운 것.
+#
+# 이 파일은 "입력(차량 제원)"이자 "출력(식별된 C_Pf/C_Pr)"이다.
+# 학습이 끝나면 helpers/save_model.py 가 yaml.dump 로 덮어쓰므로 **이 주석들은 사라진다.**
+# 원본은 output_dir(기본 ~/.ros/pacejka_sysid/models/F1TENTH/)로 복사된 사본이 갱신되고,
+# 여기 소스 트리의 템플릿은 그대로 남는다.
+#
+# 값 출처:
+#   m, l_f, l_r  : src/control/smppi_cuda_controller/config/params.yaml
+#   l_wb         : = l_f + l_r = 0.324, f1tenth_stack/config/vesc.yaml 의 wheelbase 0.324 와 일치
+#   I_z          : [미검증] 오픈소스 값
+#                  주의 - smppi config/params.yaml 은 0.16 으로 3.4배 다르다. README 참고.
+#   h_cg         : [미검증] 워크스페이스에 실측값 없음. generate_lut=False 면 사용되지 않는다.
+#
+# C_Pf / C_Pr 은 학습 시작 전 값이며 결과에 영향을 주지 않는다(피팅 초기값은
+# params/pacejka_params.yaml 의 C_Pf_model / C_Pr_model 이 담당). 원본 README 명시.
+C_Pf:
+- 6.0926
+- 1.2447
+- 0.7955
+- 0.7815
+C_Pr:
+- 6.6457
+- 2.2129
+- 0.7317
+- 0.0597
+I_z: 0.04712
+h_cg: 0.02
+l_f: 0.163
+l_r: 0.161
+l_wb: 0.324
+m: 3.74
+model_name: F1TENTH
+tire_model: pacejka

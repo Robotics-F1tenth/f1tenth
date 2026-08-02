@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    input_topic: "/rigid_bodies"
+    rigid_body_name: '7'
+    output_topic: "/mocap_pose2"
+    output_frame: "map"
+    input_axes: y_up
+    rotation: [-0.024109145110371634, 0.9997093323171726, 0.0, -0.9997093323171726, -0.024109145110371634, 0.0, 0.0, 0.0,
+      1.0]
+    translation: [0.10945907322015613, -4.6659803471326535, 0.0]
+    publish_tf: false
+    tracked_point_to_base_rotation: [0.9985568817471192, 0.05370431933718031, 0.0, -0.05370431933718031, 0.9985568817471192,
+      0.0, 0.0, 0.0, 1.0]
+    tracked_point_to_base_translation: [-0.015878482118607786, 0.06222004094970281, 0.0]

@@ -1,5 +1,18 @@
 build/
 install/
+# Alternate colcon output directories used for the f1_localization build.
+build_f1_localization/
+install_f1_localization/
+# External checkout and local archive kept under the workspace.
+osqp/
+src/driver_3th.zip
+src/driver/
+src/ackermann_mux/
+# Controller packages managed in their own repositories.
+src/control/f1tenth_mpc_control/
+src/control/cuda_mppi_controller/
+src/control/f1tenth_gap_follow/
+src/control/control_mux/
 dist/
 *.egg-info/
 *.egg
@@ -32,3 +45,5 @@ log/
 docs/
 eval/
 pose_to_tf.py
+maps/my_map.pgm
+maps/my_map.yaml

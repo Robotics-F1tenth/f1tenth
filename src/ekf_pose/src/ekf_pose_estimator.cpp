@@ -18,7 +18,7 @@ EKFPoseEstimator::EKFPoseEstimator() : Node("ekf_pose_estimator")
     declare_parameter("base_frame",         "base_link");
     declare_parameter("odom_topic",         "/odom");
     declare_parameter("imu_topic",          "/imu/data");
-    declare_parameter("mcl_pose_topic",     "/mcl_pose");
+    declare_parameter("mcl_pose_topic",     "/newmcl_pose");
 
     // Process noise
     declare_parameter("q_pos",              0.01);
