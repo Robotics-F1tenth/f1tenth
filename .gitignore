@@ -27,3 +27,8 @@ env/
 .coverage
 logs/
 log/
+.continue/
+.omc/
+docs/
+eval/
+pose_to_tf.py
