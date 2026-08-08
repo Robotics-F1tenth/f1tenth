@@ -36,6 +36,14 @@
     #   1) 차 정지 상태에서 a_z ≈ +9.81 이면 roll=0, ≈ -9.81 이면 roll=180.
     #   2) 좌회전(delta>0) 중 조립된 omega 가 양수인지.
     # (state_assembler.py 상단 주석, README "문제 해결" 참고)
+    #
+    # ⚠ 2026-08 0730 bag 세션 데이터엔 이 기본값(180)이 안 맞는다 — 정지 시
+    # a_z=+9.76 실측(위 기준 1번대로면 roll=0). 대신 이 세션은 ax,ay 가
+    # (roll 이 아니라) **yaw 180도**로 반전돼 있었다(ekf_pose 쪽에서 mocap GT
+    # 회귀로 확인, ekf_pose/docs/ekf-pose-analysis-2026-08.md §2/§2.5 — 같은
+    # 문서에서 물리적 역장착 가설은 육안확인으로 기각, 원인은 드라이버/펌웨어
+    # 축 컨벤션으로 추정). 즉 이 값 180 은 "REP-145 어긋남의 일반 기본값"일 뿐,
+    # 현재 실차 세션엔 그대로 안 맞을 수 있음 — 사용 전 위 1)/2) 재검증 필수.
     imu_rotation_roll: 180.0            # deg
     imu_rotation_pitch: 0.0             # deg
     imu_rotation_yaw: 0.0               # deg

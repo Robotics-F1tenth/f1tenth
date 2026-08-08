@@ -17,7 +17,9 @@ EKFPoseEstimator::EKFPoseEstimator() : Node("ekf_pose_estimator")
     declare_parameter("map_frame",          "map");
     declare_parameter("base_frame",         "base_link");
     declare_parameter("odom_topic",         "/odom");
-    declare_parameter("imu_topic",          "/imu/data");
+    // 2026-08-04: /ekf/imu/data(중력보상)로 전환 — 축 컨벤션은 /imu/data와
+    // 동일함을 bag 재검증함(docs/ekf-pose-analysis-2026-08.md §2).
+    declare_parameter("imu_topic",          "/ekf/imu/data");
     declare_parameter("mcl_pose_topic",     "/newmcl_pose");
 
     // Process noise
@@ -31,6 +33,26 @@ EKFPoseEstimator::EKFPoseEstimator() : Node("ekf_pose_estimator")
     declare_parameter("r_mcl_yaw",          0.02);
     declare_parameter("r_odom_vel",         0.1);
     declare_parameter("r_odom_yaw_rate",    0.05);
+    // §6 실측 RMSE(0.34~0.40 rad/s, mocap 미분 노이즈 포함이라 상한치) 기반.
+    declare_parameter("r_gyro_yaw_rate",    0.14);
+
+    // ── 2026-08-03 실차 bag + mocap GT 검증으로 추가된 파라미터 ──────────
+    //  docs/ekf-pose-analysis-2026-08.md 참고. 기본값은 "실측으로 가장 좋았던" 조합.
+    declare_parameter("imu_axis_yaw180",    true);
+    declare_parameter("use_odom_yaw_rate",  false);
+
+    // MCL pose 지연 보상 (retrodiction, §7.3/P3). §8.5.1(record5)은 컨트롤러
+    // 조회 시점 기준 MCL pose 나이 26~46ms를 측정했지만, 0730 bag(22:52:38,
+    // /ekf_pose 자체 200Hz 발행 vs /newmcl_pose ~51Hz)로 A/B 실측한 결과
+    // **개선이 확인 안 됨** — p50 8.5→9.7cm/p90 20.3→25.1cm 악화, yaw MAE만
+    // 2.35→2.10° 소폭 개선, 편향은 원래도 거의 0(+0.4cm)이라 고칠 대상이 없었음
+    // (docs/ekf-pose-analysis-2026-08.md §11). 원인 추정: 이 구성은 MCL이 IMU
+    // 대비 빠르고(51Hz vs 100Hz) 재생 시나리오가 §8.5.1의 "컨트롤러 비동기 조회"
+    // 패턴과 다름 — retrodiction이 득이 되는 조건(느린 MCL, 비동기 조회 지연)이
+    // 이 테스트엔 없었을 수 있음. **기본값 false** — 검증된 이득이 없는 채로
+    // 기본 켜두지 않음. 코드/파라미터는 남겨둠(다른 시나리오 재평가 가능하게).
+    declare_parameter("retrodiction_enabled", false);
+    declare_parameter("retrodiction_window",  0.5);
 
     // ── 파라미터 읽기 ─────────────────────────────────────────
     publish_rate_      = get_parameter("publish_rate").as_double();
@@ -51,6 +73,17 @@ EKFPoseEstimator::EKFPoseEstimator() : Node("ekf_pose_estimator")
     r_mcl_yaw_         = get_parameter("r_mcl_yaw").as_double();
     r_odom_vel_        = get_parameter("r_odom_vel").as_double();
     r_odom_yaw_rate_   = get_parameter("r_odom_yaw_rate").as_double();
+    r_gyro_yaw_rate_   = get_parameter("r_gyro_yaw_rate").as_double();
+
+    imu_axis_yaw180_   = get_parameter("imu_axis_yaw180").as_bool();
+    use_odom_yaw_rate_ = get_parameter("use_odom_yaw_rate").as_bool();
+    retrodiction_enabled_ = get_parameter("retrodiction_enabled").as_bool();
+    retrodiction_window_  = get_parameter("retrodiction_window").as_double();
+    RCLCPP_INFO(get_logger(),
+        "[EKF Pose] imu_axis_yaw180=%s (IMU ax,ay 부호반전 보정) | use_odom_yaw_rate=%s | "
+        "retrodiction=%s (window=%.2fs)",
+        imu_axis_yaw180_ ? "true" : "false", use_odom_yaw_rate_ ? "true" : "false",
+        retrodiction_enabled_ ? "true" : "false", retrodiction_window_);
 
     // ── 상태 초기화 ───────────────────────────────────────────
     x_.setZero();
@@ -109,6 +142,19 @@ double EKFPoseEstimator::normalize_angle(double angle)
 }
 
 // ════════════════════════════════════════════════════════════════
+//  retrodiction 히스토리를 retrodiction_window_ 만큼만 보관 (오래된 것 제거)
+// ════════════════════════════════════════════════════════════════
+void EKFPoseEstimator::trim_retrodiction_history(double now_t)
+{
+    while (!imu_hist_.empty() &&
+           now_t - imu_hist_.front().timestamp > retrodiction_window_)
+        imu_hist_.pop_front();
+    while (!state_hist_.empty() &&
+           now_t - state_hist_.front().t > retrodiction_window_)
+        state_hist_.pop_front();
+}
+
+// ════════════════════════════════════════════════════════════════
 //  초기화: mcl_pose 첫 수신 시 상태를 세팅
 // ════════════════════════════════════════════════════════════════
 void EKFPoseEstimator::initialize_state(const PoseMeasurement& pose)
@@ -130,6 +176,8 @@ void EKFPoseEstimator::initialize_state(const PoseMeasurement& pose)
     P_(5, 5) = 0.5;
 
     last_predict_time_ = pose.timestamp;
+    last_state_stamp_ = rclcpp::Time(
+        static_cast<int64_t>(pose.timestamp * 1e9), RCL_ROS_TIME);
     initialized_ = true;
 
     RCLCPP_INFO(get_logger(),
@@ -142,13 +190,23 @@ void EKFPoseEstimator::initialize_state(const PoseMeasurement& pose)
 //
 //  x(k+1) = f(x(k), u_imu)
 //
-//  도출 모델 (자전거 모델 + IMU 가속도):
+//  ⚠ 이건 자전거 모델이 아니다 (예전 주석이 틀렸음). 조향각도, 휠베이스도,
+//    타이어 모델도 쓰지 않는 **IMU 구동 점질량 데드레커닝**이다.
+//    (MPPI 가 쓰는 파세이카 동역학 자전거 모델과는 별개의 모델이다.)
+//
 //    px  += (vx*cos(yaw) - vy*sin(yaw)) * dt
 //    py  += (vx*sin(yaw) + vy*cos(yaw)) * dt
 //    yaw += yaw_rate * dt
-//    vx  += (ax - vy*yaw_rate) * dt          ← 코리올리 보정
-//    vy  += (ay + vx*yaw_rate) * dt
+//    vx  += (ax + vy*yaw_rate) * dt          ← body-frame Coriolis (교과서 부호)
+//    vy  += (ay - vx*yaw_rate) * dt
 //    yaw_rate = IMU measurement (직접 대입)
+//
+//  ⚠⚠ Coriolis 부호와 imu_axis_yaw180 은 **반드시 세트로** 다뤄야 한다.
+//     2026-08-03 실차 bag + mocap GT 검증 결과, 이 차량의 /imu/data 는
+//     ax, ay 가 차체 프레임 대비 부호 반전되어 있다(자이로 z 는 정상).
+//     예전 코드는 Coriolis 부호도 반대여서 두 오류가 서로 상쇄되고 있었다.
+//     한쪽만 고치면 v_y 적분 오차가 0.36 → 2.98 m/s (8배) 로 폭발한다.
+//     상세: docs/ekf-pose-analysis-2026-08.md §2, §3
 // ════════════════════════════════════════════════════════════════
 void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
 {
@@ -170,6 +228,11 @@ void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
     // yaw_rate 는 IMU에서 직접 받아 사용
     double yr       = imu.yaw_rate;
 
+    // IMU 가속도 축 보정 — 이 차량은 IMU 가 차체 대비 yaw 180도 회전 장착이라
+    // ax, ay 부호가 반대다 (자이로 z 는 정상). 위 주석의 경고 참고.
+    const double ax = imu_axis_yaw180_ ? -imu.ax : imu.ax;
+    const double ay = imu_axis_yaw180_ ? -imu.ay : imu.ay;
+
     double cy = std::cos(yaw);
     double sy = std::sin(yaw);
 
@@ -177,8 +240,8 @@ void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
     double px_new   = px + (vx * cy - vy * sy) * dt;
     double py_new   = py + (vx * sy + vy * cy) * dt;
     double yaw_new  = normalize_angle(yaw + yr * dt);
-    double vx_new   = vx + (imu.ax - vy * yr) * dt;
-    double vy_new   = vy + (imu.ay + vx * yr) * dt;
+    double vx_new   = vx + (ax + vy * yr) * dt;
+    double vy_new   = vy + (ay - vx * yr) * dt;
     double yr_new   = yr;   // IMU를 신뢰
 
     x_(0) = px_new;
@@ -210,10 +273,10 @@ void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
     //  ∂yaw/∂yaw_rate = dt  (yaw_rate 를 상태로 포함)
     F(2, 5) = dt;
 
-    //  ∂vx/∂vy = -yr*dt
-    F(3, 4) = -yr * dt;
-    //  ∂vy/∂vx = yr*dt
-    F(4, 3) =  yr * dt;
+    //  ∂vx/∂vy = +yr*dt   (교과서 Coriolis 부호에 맞춤)
+    F(3, 4) =  yr * dt;
+    //  ∂vy/∂vx = -yr*dt
+    F(4, 3) = -yr * dt;
 
     // ── 프로세스 노이즈 Q ──────────────────────────────────
     Matrix6x6 Q;
@@ -227,6 +290,17 @@ void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
 
     // ── 공분산 전파 P = F*P*F' + Q ────────────────────────
     P_ = F * P_ * F.transpose() + Q;
+
+    // ── yaw_rate 공분산 정합성 보정 (§7.1) ─────────────────
+    // x_(5) 는 위에서 이전 상태와 무관하게 IMU 값으로 직접 대입됐다(직접
+    // 대입, 블렌딩 아님). F*P*F'+Q 는 "yr 이 이전 값에서 매끄럽게 이어졌다"고
+    // 가정해 전파하므로 위 대입과 모순된다 — 대입 직후 5행/5열을 "방금 들어온
+    // 독립된 자이로 측정치"로 리셋한다. F(2,5)=dt 교차항이 여전히 "새 yr 이
+    // 이전 x_(5) 에서 유도된다"는 근사를 쓰는 점은 남아있지만(§9 P2, 완전한
+    // 해는 아님), 지금보다는 정합적이다.
+    P_.row(5).setZero();
+    P_.col(5).setZero();
+    P_(5, 5) = r_gyro_yaw_rate_;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -276,41 +350,55 @@ void EKFPoseEstimator::ekf_update_pose(const PoseMeasurement& pose)
 }
 
 // ════════════════════════════════════════════════════════════════
-//  EKF Update Step — Odometry (vx, vy, yaw_rate)
+//  EKF Update Step — Odometry (vx, vy[, yaw_rate])
 //
 //  관측 모델: z = H*x + noise
 //    H = [0 0 0 1 0 0]   (vx)
-//        [0 0 0 0 1 0]   (vy)
-//        [0 0 0 0 0 1]   (yaw_rate)
+//        [0 0 0 0 1 0]   (vy)        ← /odom 의 vy 는 항상 0 하드코딩.
+//                                       현재는 못 쓰는 IMU 적분 vy 를 0 으로
+//                                       묶어주는 역할이라 유지하는 게 낫다.
+//        [0 0 0 0 0 1]   (yaw_rate)  ← use_odom_yaw_rate=false 면 제외
+//
+//  /odom 의 angular.z 는 측정이 아니라 vesc_to_odom 의 운동학 재구성
+//  (v*tan(delta)/L) 이다. 실차 bag + mocap 검증 결과 **코너에서 실제의
+//  0.70~0.80배이고 115ms 늦다.** 반면 IMU 자이로는 0.85~0.95배에 5~15ms 다.
+//  이 행을 융합하면 신선하고 정확한 자이로 값이 묵고 낮은 값에 끌려가므로
+//  기본값은 제외(use_odom_yaw_rate=false)다. 실측 개선:
+//    위치 p50 9.37→8.52cm, yaw p50 3.20°→2.17°, yaw p90 7.80°→5.08°
+//  상세: docs/ekf-pose-analysis-2026-08.md §6, §9
 // ════════════════════════════════════════════════════════════════
 void EKFPoseEstimator::ekf_update_odom(const OdomMeasurement& odom)
 {
     if (!initialized_) return;
     if (!use_odom_vel_) return;
 
-    // 관측 행렬 H (3×6)
-    Eigen::Matrix<double, 3, 6> H;
-    H.setZero();
-    H(0, 3) = 1.0;
-    H(1, 4) = 1.0;
-    H(2, 5) = 1.0;
+    const int m = use_odom_yaw_rate_ ? 3 : 2;   // 관측 차원
 
-    // 측정 노이즈 R (3×3)
-    Eigen::Matrix<double, 3, 3> R;
-    R.setZero();
+    // 관측 행렬 H (m×6)
+    Eigen::Matrix<double, Eigen::Dynamic, 6> H(m, 6);
+    H.setZero();
+    H(0, 3) = 1.0;   // vx
+    H(1, 4) = 1.0;   // vy
+    if (use_odom_yaw_rate_) H(2, 5) = 1.0;
+
+    // 측정 노이즈 R (m×m)
+    Eigen::MatrixXd R = Eigen::MatrixXd::Zero(m, m);
     R(0, 0) = r_odom_vel_;
     R(1, 1) = r_odom_vel_;
-    R(2, 2) = r_odom_yaw_rate_;
+    if (use_odom_yaw_rate_) R(2, 2) = r_odom_yaw_rate_;
 
     // 잔차
-    Eigen::Vector3d z(odom.vx, odom.vy, odom.yaw_rate);
-    Eigen::Vector3d y_res = z - H * x_;
+    Eigen::VectorXd z(m);
+    z(0) = odom.vx;
+    z(1) = odom.vy;
+    if (use_odom_yaw_rate_) z(2) = odom.yaw_rate;
+    Eigen::VectorXd y_res = z - H * x_;
 
     // 혁신 공분산 S
-    Eigen::Matrix<double, 3, 3> S = H * P_ * H.transpose() + R;
+    Eigen::MatrixXd S = H * P_ * H.transpose() + R;
 
     // 칼만 게인 K
-    Eigen::Matrix<double, 6, 3> K = P_ * H.transpose() * S.inverse();
+    Eigen::MatrixXd K = P_ * H.transpose() * S.inverse();
 
     // 상태 업데이트
     x_ = x_ + K * y_res;
@@ -342,6 +430,13 @@ void EKFPoseEstimator::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         ekf_predict(imu);
+        last_state_stamp_ = msg->header.stamp;
+
+        if (retrodiction_enabled_) {
+            imu_hist_.push_back(imu);
+            state_hist_.push_back({imu.timestamp, x_, P_});
+            trim_retrodiction_history(imu.timestamp);
+        }
     }
 }
 
@@ -382,20 +477,73 @@ void EKFPoseEstimator::mcl_pose_callback(const geometry_msgs::msg::PoseStamped::
         // 첫 수신으로 EKF 초기화
         initialize_state(pose);
 
-        // 버퍼에 쌓인 IMU 리플레이 (retroactive predict)
-        for (const auto& imu : imu_buffer_) {
-            if (imu.timestamp > pose.timestamp) {
-                ekf_predict(imu);
+        // 버퍼에 쌓인 IMU 리플레이 (retroactive predict).
+        // initialize_state() 가 이미 initialized_=true 로 세팅한 뒤라, 이 루프가
+        // 락 없이 x_/P_ 를 건드리면 그 사이 들어온 새 imu_callback(락을 잡고
+        // ekf_predict 를 부름)과 경합할 수 있다 — 리플레이 구간 전체를 같은
+        // 뮤텍스로 감싼다 (docs/ekf-pose-analysis-2026-08.md §7.5/P3).
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            for (const auto& imu : imu_buffer_) {
+                if (imu.timestamp > pose.timestamp) {
+                    ekf_predict(imu);
+                    last_state_stamp_ = rclcpp::Time(
+                        static_cast<int64_t>(imu.timestamp * 1e9), RCL_ROS_TIME);
+                }
             }
         }
         imu_buffer_.clear();
         return;
     }
 
-    // 이후에는 보정(update) 만 수행
+    // 이후에는 보정(update) — MCL pose 지연 보상 (retrodiction, §7.3/P3).
+    //
+    // MCL pose 는 스캔 취득→파티클필터 연산을 거친 **과거 시점**의 추정이다
+    // (§8.5.1 실측: 컨트롤러 조회 시점 기준 26~46ms 나이). 그런데 지금 x_/P_ 는
+    // 그 사이 들어온 IMU 로 이미 더 미래로 predict 돼 있다. 이 상태에 pose 를
+    // 그냥 update 하면 "과거 시점 측정치를 미래 시점 상태에 잘못 정합"하는
+    // 셈이 된다 — retrodiction 은 (1) pose.timestamp 시점의 과거 상태로
+    // 되감고 (2) 거기서 보정한 뒤 (3) 그 이후 IMU 를 다시 순서대로 재적용해
+    // "현재"로 되돌린다.
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
-        ekf_update_pose(pose);
+
+        const StateSnapshot* snap = nullptr;
+        if (retrodiction_enabled_) {
+            // state_hist_ 는 시간순 정렬 — pose.timestamp 이하인 것 중 가장 최근
+            for (const auto& s : state_hist_) {
+                if (s.t <= pose.timestamp) snap = &s;
+                else break;
+            }
+        }
+
+        if (snap) {
+            x_ = snap->x;
+            P_ = snap->P;
+            last_predict_time_ = snap->t;
+
+            ekf_update_pose(pose);   // 과거 시점에서 보정
+
+            // 그 이후 IMU 를 순서대로 재적용해 "현재"로 재전진.
+            // state_hist_ 는 이 보정으로 궤적이 바뀌었으므로 다시 채운다
+            // (imu_hist_ 는 원시 센서 로그라 그대로 재사용 가능).
+            std::deque<StateSnapshot> rebuilt;
+            for (const auto& imu : imu_hist_) {
+                if (imu.timestamp > pose.timestamp) {
+                    ekf_predict(imu);
+                    rebuilt.push_back({imu.timestamp, x_, P_});
+                }
+            }
+            state_hist_.swap(rebuilt);
+
+            double last_t = rebuilt.empty() ? pose.timestamp : rebuilt.back().t;
+            last_state_stamp_ = rclcpp::Time(
+                static_cast<int64_t>(last_t * 1e9), RCL_ROS_TIME);
+        } else {
+            // retrodiction 꺼짐, 또는 pose 가 히스토리 창(retrodiction_window_)
+            // 보다 오래돼 되감을 스냅샷이 없음 — 예전처럼 현재 상태에 직접 보정.
+            ekf_update_pose(pose);
+        }
     }
 }
 
@@ -405,7 +553,12 @@ void EKFPoseEstimator::mcl_pose_callback(const geometry_msgs::msg::PoseStamped::
 void EKFPoseEstimator::timer_callback()
 {
     if (!initialized_) return;
-    publish_pose(this->now());
+    rclcpp::Time stamp;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        stamp = last_state_stamp_;
+    }
+    publish_pose(stamp);
 }
 
 void EKFPoseEstimator::publish_pose(const rclcpp::Time& stamp)
