@@ -31,6 +31,9 @@ map -> odom -> base_link -> laser
 - 운영 기본값은 `publish_odom_tf:=false`다. mapping할 때만 launch 인자로
   `true`를 전달한다. `vesc_to_odom.cpp`의 기본값이나 차량별 `vesc.yaml`을 수정할
   필요가 없다.
+- `vesc.yaml`에는 `publish_tf`를 중복 선언하지 않는다. 노드별 YAML 값이 launch
+  override보다 우선 적용되는 Humble 동작을 실차에서 확인했기 때문이다. 운영 기본값은
+  C++의 `false`, mapping 값은 launch의 `publish_odom_tf:=true`가 각각 소유한다.
 - 새 `.pgm/.yaml`을 저장하는 것과 새 주행 centerline/boundary를 만드는 것은
   별도 작업이다.
 
