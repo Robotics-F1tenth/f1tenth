@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import math
+import shutil
 import sys
 import threading
 import termios
@@ -14,6 +15,7 @@ import yaml
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
+from ament_index_python.packages import get_package_share_directory
 
 
 # ---------------- YAML pretty dump helpers ----------------
@@ -175,9 +177,11 @@ def rmse(vals):
 # ---------------- Keyboard listener (space / q) ----------------
 class KeyboardListener:
     """
-    space: capture one sample
-    q: finish and exit
+    Listen for calibration keyboard commands.
+
+    Space captures one sample, and Q finishes the session.
     """
+
     def __init__(self, on_space, on_quit, logger=None):
         self.on_space = on_space
         self.on_quit = on_quit
@@ -220,7 +224,7 @@ class KeyboardListener:
                     self.on_space()
                 elif ch in ('q', 'Q'):
                     self.on_quit()
-                    break 
+                    break
         finally:
             self._restore_terminal()
 # --------------------------------------------------------------
@@ -233,27 +237,62 @@ class SE2OffsetEstimator(Node):
         self.declare_parameter('obj', 1)
         self.obj = int(self.get_parameter('obj').value)
 
-        if self.obj == 1:
-            self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/params/params.yaml'
-        elif self.obj == 2:
-            self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/params/params2.yaml'
-        else:
-            self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/params/params.yaml'
+        if self.obj not in (1, 2):
             self.get_logger().warn(
                 f"obj={self.obj} is invalid. Fallback to obj=1 params."
             )
             self.obj = 1
 
-        if os.path.exists(self.params_path):
-            self.get_logger().info(f"Using params file: {self.params_path}")
+        params_name = 'params.yaml' if self.obj == 1 else 'params2.yaml'
+        try:
+            package_share = get_package_share_directory('mocap_localization')
+            default_params_path = os.path.join(package_share, 'params', params_name)
+        except Exception:
+            default_params_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), 'params', params_name)
+
+        self.declare_parameter('params_path', default_params_path)
+        self.declare_parameter('candidate_path', '')
+        self.declare_parameter('overwrite_source_params', False)
+        self.declare_parameter('overwrite_candidate', False)
+        self.declare_parameter('prepare_identity_candidate', True)
+
+        self.params_path = os.path.abspath(
+            os.path.expanduser(str(self.get_parameter('params_path').value)))
+        candidate_path = str(self.get_parameter('candidate_path').value).strip()
+        overwrite_source = bool(self.get_parameter('overwrite_source_params').value)
+        overwrite_candidate = bool(self.get_parameter('overwrite_candidate').value)
+        prepare_identity = bool(self.get_parameter('prepare_identity_candidate').value)
+
+        if not os.path.exists(self.params_path):
+            raise FileNotFoundError(f"params file not found: {self.params_path}")
+
+        if overwrite_source:
+            self.target_params_path = self.params_path
+            self.get_logger().warn(
+                "overwrite_source_params=true: the source params file may be modified")
         else:
-            self.get_logger().warn(f"Params file not found: {self.params_path} (will fail to save results)")
+            if not candidate_path:
+                candidate_path = os.path.abspath(
+                    f'mocap_calibration_obj{self.obj}_candidate.yaml')
+            self.target_params_path = os.path.abspath(os.path.expanduser(candidate_path))
+            if self.target_params_path == self.params_path:
+                raise ValueError(
+                    "candidate_path equals params_path; choose another path or explicitly set "
+                    "overwrite_source_params:=true")
+            if os.path.exists(self.target_params_path) and not overwrite_candidate:
+                raise FileExistsError(
+                    f"candidate already exists: {self.target_params_path}; choose a new path "
+                    "or explicitly set overwrite_candidate:=true")
+            shutil.copy2(self.params_path, self.target_params_path)
+
+        self.get_logger().info(f"Source params: {self.params_path}")
+        self.get_logger().info(f"Candidate output: {self.target_params_path}")
 
         self.mocap_topic = '/mocap_pose1' if self.obj == 1 else '/mocap_pose2'
-        self.target_params_path = self.params_path
 
         self.declare_parameter('mcl_topic', '/newmcl_pose')
-        self.declare_parameter('time_tolerance_sec', 100000.0)
+        self.declare_parameter('time_tolerance_sec', 0.05)
 
         self.mcl_topic = self.get_parameter('mcl_topic').value
         self.tol = float(self.get_parameter('time_tolerance_sec').value)
@@ -270,15 +309,19 @@ class SE2OffsetEstimator(Node):
         self.finish_requested = threading.Event()
         self.finish_timer = None
 
-        try:
+        if prepare_identity:
             reset_yaml_identity(self.target_params_path, logger=self.get_logger())
-            self.get_logger().info(f"RESET params to identity/zero: {self.target_params_path}")
-        except Exception as e:
-            self.get_logger().error(f"Failed to reset params: {e}")
+            self.get_logger().info(
+                f"Prepared identity candidate (source untouched): {self.target_params_path}")
 
         self.get_logger().info(
-            f"Start mocap_launch{self.obj} separately after this node resets the params file."
+            "Launch a separate mocap_localization instance with the candidate file before "
+            "capturing samples. Do not use the production output topic at the same time."
         )
+        self.get_logger().warn(
+            "This legacy six-parameter fit cannot uniquely separate shared T_map_mocap "
+            "from vehicle-specific T_point_base. Treat its output as a candidate only; "
+            "both vehicles must ultimately share one validated T_map_mocap.")
 
         self.sub_mcl = self.create_subscription(PoseStamped, self.mcl_topic, self.cb_mcl, 10)
         self.sub_mocap = self.create_subscription(PoseStamped, self.mocap_topic, self.cb_mocap, 10)
@@ -309,7 +352,8 @@ class SE2OffsetEstimator(Node):
         with self.pending_lock:
             if self.pending_sample is None:
                 self.get_logger().warn(
-                    "No pending paired sample within tol yet. Move robot / wait for synced messages."
+                    "No pending paired sample within tol yet. "
+                    "Move robot / wait for synced messages."
                 )
                 return
 
@@ -373,9 +417,10 @@ class SE2OffsetEstimator(Node):
 
     def predict_base_from_mocap_point(self, params, x_moc, y_moc, yaw_moc):
         """
-        params = [a, tx, ty, b, bx, by]
-          a, tx, ty : T_map_mocap
-          b, bx, by : T_point_base
+        Predict the base pose from the tracked mocap point.
+
+        Params are ``[a, tx, ty, b, bx, by]``. The first triplet describes
+        ``T_map_mocap`` and the second describes ``T_point_base``.
         """
         a, tx, ty, b, bx, by = params
 

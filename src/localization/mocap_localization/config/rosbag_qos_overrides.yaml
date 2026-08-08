@@ -1,0 +1,27 @@
+/rigid_bodies:
+  history: keep_last
+  # Archive queue, not live-control queue. 256 covers >1 s even at 240 Hz.
+  depth: 256
+  reliability: best_effort
+  durability: volatile
+/mocap/car3/pose:
+  history: keep_last
+  depth: 64
+  reliability: best_effort
+  durability: volatile
+/mocap/car4/pose:
+  history: keep_last
+  depth: 64
+  reliability: best_effort
+  durability: volatile
+# Legacy aliases retained for old launch files and old bags.
+/mocap_pose1:
+  history: keep_last
+  depth: 64
+  reliability: best_effort
+  durability: volatile
+/mocap_pose2:
+  history: keep_last
+  depth: 64
+  reliability: best_effort
+  durability: volatile

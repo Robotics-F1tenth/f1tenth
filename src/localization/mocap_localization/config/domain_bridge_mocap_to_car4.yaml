@@ -1,0 +1,20 @@
+# Victus mocap domain (11) -> car 4 domain (13).
+# Both physical poses are sent so car 4 can be either ego or opponent.
+name: mocap_11_to_car4_13
+from_domain: 11
+to_domain: 13
+topics:
+  mocap/car3/pose:
+    type: geometry_msgs/msg/PoseStamped
+    qos:
+      history: keep_last
+      depth: 1
+      reliability: best_effort
+      durability: volatile
+  mocap/car4/pose:
+    type: geometry_msgs/msg/PoseStamped
+    qos:
+      history: keep_last
+      depth: 1
+      reliability: best_effort
+      durability: volatile

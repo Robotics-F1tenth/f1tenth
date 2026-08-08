@@ -1,0 +1,7 @@
+point_id,split,mocap_x,mocap_y,map_x,map_y
+SYNTHETIC_REPLACE_ME_fit_1,fit,0.0,0.0,0.1,-4.7
+SYNTHETIC_REPLACE_ME_fit_2,fit,2.0,0.0,0.1,-6.7
+SYNTHETIC_REPLACE_ME_fit_3,fit,0.0,2.0,2.1,-4.7
+SYNTHETIC_REPLACE_ME_fit_4,fit,2.0,2.0,2.1,-6.7
+SYNTHETIC_REPLACE_ME_holdout_1,holdout,1.0,0.5,0.6,-5.7
+SYNTHETIC_REPLACE_ME_holdout_2,holdout,-1.0,1.5,1.6,-3.7

@@ -1,0 +1,99 @@
+# Optional central-recording bridge: car 3 domain (12) -> Victus domain (11).
+# Add high-bandwidth topics only after the mocap-only timing A/B test passes.
+name: car3_12_to_mocap_11
+from_domain: 12
+to_domain: 11
+topics:
+  newmcl_pose:
+    type: geometry_msgs/msg/PoseStamped
+    remap: car3/newmcl_pose
+  f1/perception/object/obstacles/arr:
+    type: f1_msgs/msg/F1stateArr
+    remap: car3/f1/perception/object/obstacles/arr
+  drive:
+    type: ackermann_msgs/msg/AckermannDriveStamped
+    remap: car3/drive
+  teleop:
+    type: ackermann_msgs/msg/AckermannDriveStamped
+    remap: car3/teleop
+  ackermann_cmd:
+    type: ackermann_msgs/msg/AckermannDriveStamped
+    remap: car3/ackermann_cmd
+  ackermann_drive:
+    type: ackermann_msgs/msg/AckermannDriveStamped
+    remap: car3/ackermann_drive
+  odom:
+    type: nav_msgs/msg/Odometry
+    remap: car3/odom
+  ekf/imu/data:
+    type: sensor_msgs/msg/Imu
+    remap: car3/ekf/imu/data
+  imu/data:
+    type: sensor_msgs/msg/Imu
+    remap: car3/imu/data
+  scan:
+    type: sensor_msgs/msg/LaserScan
+    remap: car3/scan
+    qos:
+      history: keep_last
+      depth: 5
+      reliability: best_effort
+      durability: volatile
+  map:
+    type: nav_msgs/msg/OccupancyGrid
+    qos:
+      history: keep_last
+      depth: 1
+      reliability: reliable
+      durability: transient_local
+  tf:
+    type: tf2_msgs/msg/TFMessage
+  tf_static:
+    type: tf2_msgs/msg/TFMessage
+    qos:
+      history: keep_last
+      depth: 1
+      reliability: reliable
+      durability: transient_local
+  parameter_events:
+    type: rcl_interfaces/msg/ParameterEvent
+    remap: car3/parameter_events
+  f1/perception/static_obstacles:
+    type: f1_msgs/msg/F1stateArr
+    remap: car3/f1/perception/static_obstacles
+  fsm/state:
+    type: std_msgs/msg/String
+    remap: car3/fsm/state
+  mppi_optimal_trajectory:
+    type: smppi_cuda_controller/msg/MppiTrajectory
+    remap: car3/mppi_optimal_trajectory
+  commands/motor/speed:
+    type: std_msgs/msg/Float64
+    remap: car3/commands/motor/speed
+  commands/servo/position:
+    type: std_msgs/msg/Float64
+    remap: car3/commands/servo/position
+  sensors/servo_position_command:
+    type: std_msgs/msg/Float64
+    remap: car3/sensors/servo_position_command
+  sensors/core:
+    type: vesc_msgs/msg/VescStateStamped
+    remap: car3/sensors/core
+  mppi_target_path:
+    type: nav_msgs/msg/Path
+    remap: car3/mppi_target_path
+  mppi_left_boundary:
+    type: nav_msgs/msg/Path
+    remap: car3/mppi_left_boundary
+  mppi_right_boundary:
+    type: nav_msgs/msg/Path
+    remap: car3/mppi_right_boundary
+  center_path:
+    type: nav_msgs/msg/Path
+    remap: car3/center_path
+  left_boundary:
+    type: nav_msgs/msg/Path
+    remap: car3/left_boundary
+  right_boundary:
+    type: nav_msgs/msg/Path
+    remap: car3/right_boundary

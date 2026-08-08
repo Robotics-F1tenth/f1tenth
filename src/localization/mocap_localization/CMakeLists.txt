@@ -31,6 +31,29 @@ install(TARGETS mocap_localization
 install(DIRECTORY launch params
   DESTINATION share/${PROJECT_NAME})
 
+install(DIRECTORY config docs patches
+  DESTINATION share/${PROJECT_NAME})
+
+install(PROGRAMS
+  calibration_v2.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME calibration_v2)
+
+install(PROGRAMS
+  scripts/mocap_timing_probe.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME mocap_timing_probe)
+
+install(PROGRAMS
+  scripts/mocap_bag_timing_report.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME mocap_bag_timing_report)
+
+install(PROGRAMS
+  scripts/calibrate_shared_map.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME calibrate_shared_map)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

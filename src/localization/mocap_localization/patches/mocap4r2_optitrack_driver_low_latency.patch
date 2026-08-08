@@ -1,0 +1,31 @@
+From: f1tenth mocap audit
+Subject: [PATCH] publish OptiTrack streams with bounded best-effort history
+
+This patch targets upstream rolling commit
+7b92128fe05ef6e5126d6727e5bf82bd60e02445. Verify the deployed checkout before
+applying it. The qos_* entries in the upstream YAML are not consumed by that
+commit; its publishers use RELIABLE/KeepLast(1000) in C++.
+
+diff --git a/mocap4r2_optitrack_driver/src/mocap4r2_optitrack_driver/mocap4r2_optitrack_driver.cpp b/mocap4r2_optitrack_driver/src/mocap4r2_optitrack_driver/mocap4r2_optitrack_driver.cpp
+index 45d537f..4ef34c8 100644
+--- a/mocap4r2_optitrack_driver/src/mocap4r2_optitrack_driver/mocap4r2_optitrack_driver.cpp
++++ b/mocap4r2_optitrack_driver/src/mocap4r2_optitrack_driver/mocap4r2_optitrack_driver.cpp
+@@ -198,10 +198,16 @@ OptitrackDriverNode::on_configure(const rclcpp_lifecycle::State & state)
+   (void)state;
+   initParameters();
+ 
++  // Mocap is a latest-state sensor stream. Bound the writer history and do not
++  // let a slow/reliable reader back-pressure the NatNet frame callback.
++  const auto mocap_qos = rclcpp::QoS(rclcpp::KeepLast(10))
++    .best_effort()
++    .durability_volatile();
++
+   mocap4r2_markers_pub_ = create_publisher<mocap4r2_msgs::msg::Markers>(
+-    "markers", rclcpp::QoS(1000));
++    "markers", mocap_qos);
+   mocap4r2_rigid_body_pub_ = create_publisher<mocap4r2_msgs::msg::RigidBodies>(
+-    "rigid_bodies", rclcpp::QoS(1000));
++    "rigid_bodies", mocap_qos);
+ 
+   connect_optitrack();
+ 

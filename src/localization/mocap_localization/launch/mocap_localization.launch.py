@@ -12,17 +12,25 @@ def generate_launch_description():
     print(pkg_share, flush=True)
     params_file = os.path.join(pkg_share, 'params', 'params.yaml')
 
-    # This launch is self-contained by default (map_publisher included) so RViz has a map
-    # when mocap runs alone. mcl.launch.py brings its own map via nav2 map_server, so pass
-    # `with_map:=false` when running both -- otherwise /map gets two latched publishers.
+    # This launch is self-contained by default (map_publisher included) so RViz
+    # has a map when mocap runs alone. mcl.launch.py brings its own map via nav2
+    # map_server, so pass `with_map:=false` when running both. Otherwise /map
+    # gets two latched publishers.
     with_map = LaunchConfiguration("with_map")
     declare_with_map = DeclareLaunchArgument(
         "with_map",
         default_value="true",
-        description="Publish /map from this launch. Set false when mcl.launch.py already provides it.",
+        description=(
+            "Publish /map from this launch. Set false when mcl.launch.py "
+            "already provides it."
+        ),
     )
 
-    mcl_params_file = os.path.join(get_package_share_directory('als_ros'), "params", "mcl_params.yaml")
+    mcl_params_file = os.path.join(
+        get_package_share_directory('als_ros'),
+        "params",
+        "mcl_params.yaml",
+    )
     print(mcl_params_file, flush=True)
     map_publisher = Node(
         package="als_ros",
@@ -32,7 +40,9 @@ def generate_launch_description():
         parameters=[mcl_params_file],
         condition=IfCondition(with_map),
     )
-    # map_server_params_file = os.path.join(get_package_share_directory('als_ros'), "params", "map.yaml")
+    # map_server_params_file = os.path.join(
+    #     get_package_share_directory('als_ros'), "params", "map.yaml"
+    # )
     # map_server = Node(
     #     package='nav2_map_server',
     #     executable='map_server',
@@ -40,7 +50,7 @@ def generate_launch_description():
     #     output='screen',
     #     parameters=[map_server_params_file]
     # )
-    
+
     localization1 = Node(
         package='mocap_localization',
         executable='mocap_localization',

@@ -1,0 +1,86 @@
+experiment:
+  date: "YYYY-MM-DD"
+  operator: ""
+  track_map: ""
+  condition: "static|calibration|dynamic|no_obstacle"
+  repetition: 1
+
+network:
+  # Template only: verify each machine's actual ROS_DOMAIN_ID before the run.
+  motive_windows_ip: "192.168.51.X"
+  motive_streaming_local_interface: "192.168.51.X"
+  bridge_laptop_ip: "192.168.51.Y"
+  bridge_domain_id: 11
+  car3_domain_id: 12
+  car4_domain_id: 13
+
+time_sync:
+  method: "chrony|ptp"
+  reference_server: ""
+  bridge_offset_ms: null
+  ego_offset_ms: null
+  opponent_offset_ms: null
+  tracking_output_path: ""
+
+motive:
+  version: ""
+  natnet_version: ""
+  capture_rate_hz: 70
+  streaming_mode: "Unicast"
+  project_file: ""
+  marker_layout_photo: ""
+
+rigid_body_mapping:
+  # Fill these by moving one physical car at a time; never infer them from old params.
+  car3:
+    motive_name: ""
+    output_topic: "/mocap/car3/pose"
+    base_link_definition: "rear_axle_center"
+  car4:
+    motive_name: ""
+    output_topic: "/mocap/car4/pose"
+    base_link_definition: "rear_axle_center"
+
+roles:
+  ego_vehicle: "car3"
+  opponent_vehicle: "car4"
+  ego_gt_topic: "/mocap/car3/pose"
+  opponent_gt_topic: "/mocap/car4/pose"
+
+software:
+  bridge_ros_distro: "jazzy"
+  bridge_workspace: "/home/a/Downloads/mocap_ws"
+  bridge_git_sha: ""
+  ego_git_sha: ""
+  opponent_git_sha: ""
+  rmw_implementation: ""
+  optitrack_driver_publisher_qos: "best_effort_keep_last_10"
+  optitrack_driver_patch_or_commit: ""
+  domain_bridge_version: ""
+
+calibration:
+  survey_csv_sha256: ""
+  shared_map_candidate_sha256:
+    params_yaml: ""
+    params2_yaml: ""
+  shared_map_holdout_p50_m: null
+  shared_map_holdout_p95_m: null
+  car3_axis_pivot_check: "pending|pass|fail"
+  car4_axis_pivot_check: "pending|pass|fail"
+
+timing_acceptance:
+  native_iframe_gaps: null
+  driver_sequence_gaps: null
+  receive_gaps_over_60ms: null
+  record_header_age_p99_minus_p50_ms: null
+  car3_pose_loss_percent: null
+  car4_pose_loss_percent: null
+  result: "pending|pass|fail"
+
+artifacts:
+  bag_path: ""
+  driver_params_dump: ""
+  localization_params1_dump: ""
+  localization_params2_dump: ""
+  topic_inventory: ""
+  timing_report: ""
