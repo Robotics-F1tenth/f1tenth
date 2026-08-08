@@ -43,7 +43,7 @@
 
 ### 문제
 
-3호차 수동조작이 4호차보다 나아서 `f1tenth_stack/config/vesc.yaml`을 이식하고 싶었는데,
+3호차 수동조작이 4호차보다 나아서 기존 단일 `f1tenth_stack/config/vesc.yaml`을 이식하고 싶었는데,
 이 파일엔 **차량별 물리 캘리브레이션**(서보 오프셋, 좌/우 게인, erpm 게인)과
 **구조/로직 수정**(odom 부호 반전 취소, port 경로)과 **운전 취향**(joy_teleop scale)이 섞여 있다.
 통째로 복사하면 서보 중립까지 넘어와 차가 비뚤게 달린다.
@@ -65,7 +65,7 @@
 
 ### ⚠️ 3호차 이관 시 반드시 지킬 것
 
-**f1tenth_system의 `vesc.yaml`/`joy_teleop.yaml`을 pull로 그대로 덮어쓰면 안 된다.**
+**차량별 VESC YAML과 `joy_teleop.yaml`을 다른 차량 값으로 덮어쓰면 안 된다.**
 
 - `steering_angle_to_servo_offset`, `steering_angle_to_servo_gain_left/right`, `speed_to_erpm_gain`은
   **차량별 실측값**이라 4호차 값이 3호차에 그대로 들어가면 안 됨.
@@ -73,26 +73,25 @@
   4호차가 실제로 겪었던 것과 같은 패턴(미선언 시 조용히 무시) 위험이 있음.
 - odom 부호도 마찬가지로 **부호만** 새 로직에 맞춰 양수로 바꾸고, 크기(게인 magnitude)는 3호차 고유 실측값 유지.
 
-→ **3호차 pull 전 반드시 `vesc.yaml`/`joy_teleop.yaml` 백업 → pull 후 차량별 값 복원 → 필요시 좌/우 게인 재실측.**
-(장기적으로는 `car3.yaml`/`car4.yaml`로 차량별 값을 분리해 이 문제 자체를 없애는 게 맞다.)
+→ 기존 단일 파일을 수정한 배포에서는 pull 전 반드시 외부 백업한다. 현재는 아래처럼
+차량별 파일을 분리했고 bringup에서 `vesc_config` 선택을 필수로 만들었다.
 
-### 권장 구조 (Phase D와 함께, 아직 미착수)
+### 적용된 권장 구조 (2026-08-08)
 
 ```
 src/vesc/  (fork → 서브모듈)          ← 코드. 좌/우 게인 분기, odom 음수화 제거, QoS
 src/f1tenth_system/  (fork → 서브모듈)
-  f1tenth_stack/config/vesc.yaml       ← 구조·로직 (port, mux 우선순위, 공용 기본값)
+  f1tenth_stack/config/vesc_car3.yaml  ← 3호차 실측값과 장치 경로
+  f1tenth_stack/config/vesc_car4.yaml  ← 4호차 실측값과 장치 경로
   f1tenth_stack/config/joy_teleop.yaml ← 조작 프로파일
-
-config/  (최상위, 차량별)
-  imu_params.yml                        ← 이미 있음
-  car4.yaml                             ← 서보 오프셋, 좌/우 게인, erpm gain, imu_rotation
 ```
 
-launch에서 `parameters=[vesc.yaml, car4.yaml]` 순으로 넘기면 뒤가 앞을 덮는다
-(`mcl.launch.py`에서 쓴 패턴과 동일). 차량 선택은 launch 인자(`car:=car4`) 또는 환경변수.
+모든 차량 bringup은 `vesc_config:=.../vesc_car3.yaml` 또는
+`vesc_config:=.../vesc_car4.yaml`을 반드시 받는다. 암묵적 기본 차량은 없다.
+SLAM의 `publish_odom_tf`는 차량 YAML에 넣지 않고 launch 인자로만 관리한다.
 
-> 이 구조를 갖추기 전까지는 **개별 값만 손으로 옮기고 파일 통째 복사는 금지.**
+후보 캘리브레이션을 실차에서만 유지해야 한다면 tracked 파일에 `skip-worktree`를
+걸지 말고 저장소 밖 파일을 `vesc_config`로 전달한다.
 
 ---
 

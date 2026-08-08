@@ -9,9 +9,14 @@ localization·control·perception·mocap에 적용하는 전체 절차를 설명
 
 ```bash
 export F1TENTH_WS=/home/a/f1tenth
+export VEHICLE_ID=car3
+export VESC_CONFIG="${F1TENTH_WS}/src/f1tenth_system/f1tenth_stack/config/vesc_${VEHICLE_ID}.yaml"
 source /opt/ros/humble/setup.bash
 source "${F1TENTH_WS}/install/setup.bash"
 ```
+
+`VEHICLE_ID`는 실차에 맞게 `car3` 또는 `car4`로 지정한다. 잘못된 차량 파일을
+선택하면 속도·조향·장치 경로가 달라지므로 차량을 움직이기 전에 반드시 확인한다.
 
 ## 1. 먼저 알아야 하는 것
 
@@ -29,9 +34,9 @@ map -> odom -> base_link -> laser
 - mapping 중에는 slam_toolbox만 `map -> odom`을 발행해야 한다. MCL, AMCL,
   mocap localization처럼 map TF를 발행하는 노드는 함께 실행하지 않는다.
 - 운영 기본값은 `publish_odom_tf:=false`다. mapping할 때만 launch 인자로
-  `true`를 전달한다. `vesc_to_odom.cpp`의 기본값이나 차량별 `vesc.yaml`을 수정할
+  `true`를 전달한다. `vesc_to_odom.cpp`의 기본값이나 차량별 VESC YAML을 수정할
   필요가 없다.
-- `vesc.yaml`에는 `publish_tf`를 중복 선언하지 않는다. 노드별 YAML 값이 launch
+- 차량별 VESC YAML에는 `publish_tf`를 중복 선언하지 않는다. 노드별 YAML 값이 launch
   override보다 우선 적용되는 Humble 동작을 실차에서 확인했기 때문이다. 운영 기본값은
   C++의 `false`, mapping 값은 launch의 `publish_odom_tf:=true`가 각각 소유한다.
 - 새 `.pgm/.yaml`을 저장하는 것과 새 주행 centerline/boundary를 만드는 것은
@@ -64,7 +69,7 @@ map -> odom -> base_link -> laser
 
 | 변경 파일 | 변경 이유 | mapping에 반드시 필요한가? |
 |---|---|---|
-| `bringup_launch.py` | `publish_odom_tf:=true`로 mapping 때만 odom TF 활성화 | 수동으로 `vesc.yaml`을 바꾸는 방식을 쓰면 없어도 됨 |
+| `bringup_launch.py` | 차량별 `vesc_config`를 필수로 받고 mapping 때만 odom TF 활성화 | 수동으로 YAML을 바꾸는 방식을 쓰면 없어도 됨 |
 | `sick_bringup_launch.py` | SICK 라이다 차량에도 같은 인자 제공 | SICK 구성을 사용할 때만 해당 |
 | `f1tenth_online_async.yaml` | SLAM 기준 프레임을 차량 이동 기준인 `base_link`로 통일 | 기존 `base_frame: laser`도 TF가 연결되면 동작하므로 필수 수정은 아님 |
 | `mcl.launch.py` | 실제 map_server의 지도와 MCL 초기 자세를 launch 인자로 선택 | 지도 생성에는 무관하지만 저장한 지도를 현재 MCL에 적용할 때 필요 |
@@ -77,7 +82,9 @@ lint 정리한 것이며 차량 동작을 제거한 것이 아니다.
 켤 수 있다.
 
 ```bash
-ros2 launch f1tenth_stack bringup_launch.py publish_odom_tf:=true
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:="${VESC_CONFIG}" \
+  publish_odom_tf:=true
 ```
 
 저장한 지도도 YAML 파일을 매번 고치지 않고 다음처럼 적용한다.
@@ -87,6 +94,95 @@ ros2 launch als_ros mcl.launch.py \
   map_yaml:=/absolute/path/to/new_map.yaml \
   initial_pose_x:=0.0 initial_pose_y:=0.0 initial_pose_yaw:=0.0
 ```
+
+### 1.2 차량별 VESC 설정과 Git 운영
+
+VESC 값은 소프트웨어 공통 설정이 아니라 차량별 물리 보정값이다. 저장소는 이를
+다음처럼 분리한다.
+
+```text
+f1tenth_stack/config/
+├── vesc_car3.yaml  # 3호차: 4185.0, -1.882, /dev/ttyMOTOR
+└── vesc_car4.yaml  # 4호차: 3806.35, 비대칭 steering gain, /dev/sensors/vesc
+```
+
+bringup에는 안전한 공통 기본값이 없다. `vesc_config`를 생략하면 실행이 실패하며,
+항상 해당 차량 파일을 명시해야 한다. 차량에서만 관리하는 후보 보정값은 Git tracked
+파일을 직접 고치지 말고 `/home/a/f1tenth_car3_config/vesc.yaml` 같은 저장소 외부
+파일로 보관한 뒤 같은 인자로 전달한다.
+
+#### 3호차 실행 명령
+
+일반 localization·수동주행에서는 odom TF를 켜지 않는다.
+
+```bash
+cd /home/a/f1tenth_ws
+source install/setup.bash
+
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:=/home/a/f1tenth_ws/src/f1tenth_system/f1tenth_stack/config/vesc_car3.yaml
+```
+
+새 지도를 만드는 SLAM 작업에서만 `publish_odom_tf:=true`를 추가한다.
+
+```bash
+cd /home/a/f1tenth_ws
+source install/setup.bash
+
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:=/home/a/f1tenth_ws/src/f1tenth_system/f1tenth_stack/config/vesc_car3.yaml \
+  publish_odom_tf:=true
+```
+
+#### 4호차 실행 명령
+
+일반 localization·수동주행:
+
+```bash
+cd /home/a/f1tenth_ws
+source install/setup.bash
+
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:=/home/a/f1tenth_ws/src/f1tenth_system/f1tenth_stack/config/vesc_car4.yaml
+```
+
+새 지도를 만드는 SLAM 작업:
+
+```bash
+cd /home/a/f1tenth_ws
+source install/setup.bash
+
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:=/home/a/f1tenth_ws/src/f1tenth_system/f1tenth_stack/config/vesc_car4.yaml \
+  publish_odom_tf:=true
+```
+
+실행 직후 차량을 움직이기 전에 선택한 설정을 확인한다.
+
+```bash
+ros2 param get /vesc_to_odom_node publish_tf
+ros2 param get /vesc_to_odom_node speed_to_erpm_gain
+ros2 param get /vesc_to_odom_node steering_angle_to_servo_offset
+ros2 param get /vesc_driver_node port
+```
+
+3호차 기대값은 gain `4185.0`, offset `0.52`, port `/dev/ttyMOTOR`이고,
+4호차 기대값은 gain `3806.35`, offset `0.44105`, port `/dev/sensors/vesc`다.
+`publish_tf`는 일반 실행에서 `False`, SLAM 실행에서 `True`여야 한다. 하나라도 다르면
+차량을 움직이지 말고 bringup을 종료한다.
+
+`.gitignore`는 이미 추적 중인 파일을 보호하지 못한다. 또한 다음 명령으로 tracked
+파일을 숨기지 않는다.
+
+```bash
+git update-index --skip-worktree <file>
+git update-index --assume-unchanged <file>
+```
+
+이 표시는 `git status`와 `git diff`에서는 변경을 숨기면서 submodule checkout은
+막을 수 있다. 실제로 3호차 `vesc.yaml` 변경이 보이지 않다가 submodule update에서
+중단되는 현상이 발생했다. 숨김 여부는 `git ls-files -v <file>`로 확인하고, 발견하면
+외부에 먼저 복사한 후 `--no-skip-worktree`, `--no-assume-unchanged`로 해제한다.
 
 ## 2. 최초 1회 빌드
 
@@ -105,7 +201,7 @@ ros2 launch f1tenth_stack bringup_launch.py --show-args
 ros2 launch als_ros mcl.launch.py --show-args
 ```
 
-- 차량 bringup: `publish_odom_tf`
+- 차량 bringup: 필수 `vesc_config`, 선택 `publish_odom_tf`
 - MCL: `map_yaml`, `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw`
 
 ## 3. Mapping 전 안전 준비
@@ -127,13 +223,17 @@ ros2 node list
 일반 라이다 bringup은 다음과 같이 실행한다.
 
 ```bash
-ros2 launch f1tenth_stack bringup_launch.py publish_odom_tf:=true
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:="${VESC_CONFIG}" \
+  publish_odom_tf:=true
 ```
 
 SICK 라이다 구성이라면 대신 다음을 사용한다.
 
 ```bash
-ros2 launch f1tenth_stack sick_bringup_launch.py publish_odom_tf:=true
+ros2 launch f1tenth_stack sick_bringup_launch.py \
+  vesc_config:="${VESC_CONFIG}" \
+  publish_odom_tf:=true
 ```
 
 중요: 실행 중인 노드에 나중에 `ros2 param set`만 하지 않는다. TF broadcaster는
@@ -144,9 +244,12 @@ ros2 launch f1tenth_stack sick_bringup_launch.py publish_odom_tf:=true
 ```bash
 source "${F1TENTH_WS}/install/setup.bash"
 ros2 param get /vesc_to_odom_node publish_tf
+ros2 param get /vesc_to_odom_node speed_to_erpm_gain
+ros2 param get /vesc_driver_node port
 ```
 
-결과가 `Boolean value is: True`여야 한다.
+첫 결과가 `Boolean value is: True`여야 한다. 이어지는 보정값과 포트가 선택한 차량
+YAML과 다르면 차량을 움직이지 않고 bringup을 종료한다.
 
 ## 5. SLAM 실행 전 사전점검
 
@@ -273,6 +376,28 @@ YAML의 `image:`는 보통 상대경로이므로 `.yaml`과 `.pgm`은 항상 같
 파일을 저장소 안으로 옮기지 않아도 절대경로로 바로 시험할 수 있다. 차량의 대략적인
 시작 자세를 새 map 좌표계에서 측정해 함께 전달한다. yaw 단위는 **degree**다.
 
+먼저 slam_toolbox와 mapping용 bringup을 종료한다. SLAM과 MCL을 동시에 실행하면
+map TF 발행자가 충돌한다. 차량 bringup은 같은 차량 설정으로 다시 실행하되
+`publish_odom_tf:=true`를 빼서 운영 기본값으로 되돌린다.
+
+```bash
+ros2 launch f1tenth_stack bringup_launch.py \
+  vesc_config:="${VESC_CONFIG}"
+```
+
+MCL은 생성 중에 `/map`, `/scan`, `/imu/data`, `/odom`을 모두 기다린 뒤에야 주기
+업데이트와 `map -> base_link` TF 발행을 시작한다. 특히 map_server가 `/map`을
+발행하더라도 IMU가 꺼져 있으면 RViz에는 지도가 보이면서도 Fixed Frame에
+`Frame [map] does not exist`가 표시될 수 있다. MCL 실행 전에 네 입력을 확인한다.
+
+```bash
+ros2 topic echo /scan --once
+ros2 topic echo /imu/data --once
+ros2 topic echo /odom --once
+```
+
+`/map`은 아래 MCL launch가 map_server를 함께 시작하므로 launch 후 확인한다.
+
 ```bash
 ros2 launch als_ros mcl.launch.py \
   map_yaml:="${MAP_DIR}/${MAP_NAME}.yaml" \
@@ -284,6 +409,13 @@ ros2 launch als_ros mcl.launch.py \
 
 위의 세 초기값은 예시일 뿐이다. 실제 차량 위치로 바꾸거나, 실행 후 RViz의
 `2D Pose Estimate`(`p`)로 `/initialpose`를 보낸다.
+
+MCL 로그에 `MCL is ready to perform`이 출력되고 다음 TF가 반복 출력돼야 한다.
+
+```bash
+ros2 topic echo /map --once
+ros2 run tf2_ros tf2_echo map base_link
+```
 
 정식 지도 자산으로 버전 관리하려면 두 파일을 함께 복사한다.
 
@@ -391,6 +523,9 @@ mocap pose가 체계적으로 이동하거나 회전한다. 다음 순서로 다
 | `base_footprint` frame이 없다고 나옴 | 첨부 YAML이 아닌 slam_toolbox 기본 YAML 사용 | `slam_params_file:=.../f1tenth_online_async.yaml` 확인 |
 | 지도나 차량 pose가 흔들림 | SLAM과 MCL/AMCL이 동시에 map TF 발행 | mapping 중 다른 localization 노드 종료 |
 | SLAM이 시간 대기 상태 | 실차에서 `use_sim_time:=true` | `use_sim_time:=false`로 재시작 |
+| RViz에 지도는 보이지만 `Frame [map] does not exist` | MCL 필수 입력, 특히 `/imu/data`, 누락으로 초기화 미완료 | `/scan`, `/imu/data`, `/odom`, `/map`을 각각 `--once`로 확인하고 `MCL is ready to perform` 로그 확인 |
+| `git status`는 깨끗한데 submodule update가 `vesc.yaml would be overwritten`로 실패 | tracked 차량 설정에 `skip-worktree` 또는 `assume-unchanged` 적용 | `git ls-files -v`로 확인하고 외부 백업 후 두 표시를 해제; 차량별 YAML 또는 외부 config 사용 |
+| bringup이 `vesc_config` 인자가 없다고 종료 | 차량 설정의 암묵적 기본값을 제거한 안전 동작 | `vesc_config:=.../vesc_car3.yaml` 또는 `vesc_car4.yaml`을 명시 |
 | 저장했는데 control 경로가 옛 트랙 | SMPPI는 PGM이 아닌 centerline CSV 사용 | 새 centerline/boundary CSV 생성 및 `map_name` 변경 |
 | perception 벽 필터가 이상함 | `/map`과 lane CSV 좌표계 불일치 | 둘 다 새 map 좌표계로 교체 |
 | mocap pose가 일정하게 회전/이동 | 기존 지도용 `T_map_mocap` 사용 | shared map alignment 재보정 |
