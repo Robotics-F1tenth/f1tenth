@@ -53,7 +53,7 @@ self.params_path = '/home/a/f1tenth_ws/src/localization/mocap_localization/param
 ```
 
 지금은 4호차·3호차 워크스페이스 이름이 둘 다 `f1tenth_ws`라 우연히 동작하지만,
-`integration/workspace-path-unification.md`에서 다룬 것과 정확히 같은 종류의 문제다.
+`integration/workspace_unification.md`에서 다룬 것과 정확히 같은 종류의 문제다.
 패키지명을 바꾸면 이 경로들도 어차피 다 깨지므로, 이름 변경과 **동시에**
 `get_package_share_directory()` 기반으로 바꿔서 워크스페이스 이름 의존성 자체를 없애는 게 낫다.
 

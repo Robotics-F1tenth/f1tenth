@@ -71,4 +71,4 @@ colcon build --packages-select vesc_ackermann vesc_driver
 
 - 클리핑 경고(`below/above limit, clipping`)는 이 이슈와 무관. 좌우 게인이 서보 물리
   한계를 일부러 넘도록 잡혀 있어 양쪽 끝에서 클립되는 것은 **정상**(설계상 의도됨).
-  `integration/workspace-path-unification.md`의 Phase A' 검증 결과 참조.
+  `integration/workspace_unification.md`의 Phase A' 검증 결과 참조.
