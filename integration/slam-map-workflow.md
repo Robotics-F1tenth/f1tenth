@@ -34,6 +34,57 @@ map -> odom -> base_link -> laser
 - 새 `.pgm/.yaml`을 저장하는 것과 새 주행 centerline/boundary를 만드는 것은
   별도 작업이다.
 
+### 1.1 기존 인수인계 방식도 가능한가?
+
+가능하다. 기존 인수인계의 핵심은 다음과 같다.
+
+1. `vesc.yaml`의 `publish_tf`를 `true`로 바꾼다.
+2. VESC 노드를 재시작해서 `odom -> base_link`를 만든다.
+3. slam_toolbox 기본 설정이 요구하는 `base_footprint`를 static TF로 보충한다.
+4. 주행 후 `map_saver_cli`로 `.yaml/.pgm`을 저장한다.
+
+다만 현재 저장소에서 그대로 반복하기에는 다음 문제가 있었다.
+
+- mapping 전후로 차량별 `vesc.yaml`을 직접 수정하고 되돌려야 한다.
+- `vesc_to_odom.cpp`의 기본값까지 `true`로 바꾸는 것은 YAML이 값을 덮어쓰므로
+  중복이며, 소스 재빌드만 늘어난다.
+- Humble의 launch 파일명은 `online_async.py`가 아니라
+  `online_async_launch.py`다.
+- 첨부한 SLAM YAML은 자동으로 로드되지 않으므로 `slam_params_file:=...`을 반드시
+  전달해야 한다.
+- 인수인계에서 수정하라고 한 `mcl_params.yaml`의 legacy `map_publisher`는 현재
+  `mcl.launch.py`에서 실행되지 않는다. 현재 MCL의 지도는 `nav2_map_server`가
+  로드한다.
+
+따라서 지도 생성 알고리즘을 고친 것이 아니라, 반복 수동 작업과 현재 launch 구조의
+불일치를 다음과 같이 정리했다.
+
+| 변경 파일 | 변경 이유 | mapping에 반드시 필요한가? |
+|---|---|---|
+| `bringup_launch.py` | `publish_odom_tf:=true`로 mapping 때만 odom TF 활성화 | 수동으로 `vesc.yaml`을 바꾸는 방식을 쓰면 없어도 됨 |
+| `sick_bringup_launch.py` | SICK 라이다 차량에도 같은 인자 제공 | SICK 구성을 사용할 때만 해당 |
+| `f1tenth_online_async.yaml` | SLAM 기준 프레임을 차량 이동 기준인 `base_link`로 통일 | 기존 `base_frame: laser`도 TF가 연결되면 동작하므로 필수 수정은 아님 |
+| `mcl.launch.py` | 실제 map_server의 지도와 MCL 초기 자세를 launch 인자로 선택 | 지도 생성에는 무관하지만 저장한 지도를 현재 MCL에 적용할 때 필요 |
+
+launch 파일에서 제거된 `throttle_interpolator_node` 변수는 원래도
+`ld.add_action(...)`이 주석이라 실행되지 않던 코드다. 사용하지 않는 import와 함께
+lint 정리한 것이며 차량 동작을 제거한 것이 아니다.
+
+결과적으로 mapping 때 운영 파일이나 C++를 수정하지 않고 다음 한 줄로 필요한 TF를
+켤 수 있다.
+
+```bash
+ros2 launch f1tenth_stack bringup_launch.py publish_odom_tf:=true
+```
+
+저장한 지도도 YAML 파일을 매번 고치지 않고 다음처럼 적용한다.
+
+```bash
+ros2 launch als_ros mcl.launch.py \
+  map_yaml:=/absolute/path/to/new_map.yaml \
+  initial_pose_x:=0.0 initial_pose_y:=0.0 initial_pose_yaw:=0.0
+```
+
 ## 2. 최초 1회 빌드
 
 이 절차에 사용되는 launch 인자를 설치 공간에 반영한다.
