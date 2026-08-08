@@ -10,7 +10,7 @@
 
 | 경로 | 원격 | `.gitmodules` 브랜치 | 현재 체크아웃 | 상태 |
 |---|---|---|---|---|
-| `src/f1_localization` | `heojy/f1_localization` | (미지정) | `43c9fb8` (`feature/slam-map-workflow`) | ✅ origin에 push 완료, `.omc/`만 로컬 IDE 캐시로 남음 |
+| `src/f1_localization` | `heojy/f1_localization` | (미지정) | `8bc9e1a` (`feature/slam-map-workflow`) | ✅ origin에 push 완료, `.omc/`는 `.gitignore`로 제외 |
 | `src/perception` | `heojy/f1_perception` | `feature/acc-yaw-estimation` | `404d224` | ✅ origin에 존재 확인 |
 | `src/vesc` | `Robotics-F1tenth/vesc` (fork) | `ros2` | `d53d999` | clean |
 | `src/f1tenth_system` | `Robotics-F1tenth/f1tenth_system` (fork) | (미지정) | `a2754cc` (`feature/slam-map-workflow`) | ✅ origin에 push 완료 — mapping용 odom TF launch 인자 포함 |
@@ -44,7 +44,7 @@
 
 | 항목 | 내용 | 조치 |
 |---|---|---|
-| `src/f1_localization` untracked `.omc/` | 로컬 IDE 캐시, 무해 | 방치 가능, 필요시 `.gitignore` 추가 검토 |
+| `src/f1_localization` `.omc/` | 로컬 IDE 캐시, 소스 아님 | submodule `.gitignore`에서 제외 완료 |
 
 ### 해결됨 — `smppi_cuda_controller` 브랜치 불일치
 
