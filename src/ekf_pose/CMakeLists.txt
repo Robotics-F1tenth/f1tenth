@@ -52,6 +52,14 @@ install(PROGRAMS
     RENAME ekf_evaluator
 )
 
+# IMU 축 규약 검사 — 차 위에서 바로 돌린다 (mocap 불필요).
+#   ros2 run ekf_pose imu_frame_test
+install(PROGRAMS
+    scripts/imu_frame_test.py
+    DESTINATION lib/${PROJECT_NAME}
+    RENAME imu_frame_test
+)
+
 install(DIRECTORY launch config
     DESTINATION share/${PROJECT_NAME}
 )
