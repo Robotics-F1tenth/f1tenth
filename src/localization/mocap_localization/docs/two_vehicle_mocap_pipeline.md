@@ -432,6 +432,74 @@ lap을 분리해야 한다.
 `config/shared_map_survey_example.csv`를 복사해 synthetic 행을 실제 측량값으로 모두 바꾼다.
 CSV의 `mocap_x/y`는 **shared map transform을 적용하기 전의 base-corrected planar point**다.
 
+`collect_shared_map_survey`는 이 CSV를 현장에서 만든다. Z-up/pivot 검증용 identity
+pose publisher를 `/mocap_cal/car3/base`, `/mocap_cal/car4/base`로 실행한 뒤, 매 기준점의
+ID와 독립 측량한 `map_x map_y`를 입력한다. 도구가 car3를 평균한 뒤 car4를 평균해 두 행을
+원자적으로 저장한다.
+
+```bash
+ros2 run mocap_localization collect_shared_map_survey \
+  --output /data/car34_shared_map_survey.csv \
+  --duration-sec 5 \
+  --min-samples 30
+```
+
+```text
+survey> P01 fit -1.250 0.700
+Place car3 rear-axle center on the point, keep it still, then press ENTER ...
+Place car4 rear-axle center on the point, keep it still, then press ENTER ...
+survey> P09 holdout 2.100 -3.400
+```
+
+`map_x/y`는 MCL output이 아니라 물리 측량 또는 독립 map landmark에서 얻는다. 중단해도
+완료된 point pair는 남으며, 같은 `P01_car3`/`P01_car4`를 다시 기록하려면 새 CSV 경로를
+사용한다.
+
+### 8.4 측량 불가 시: MCL-aligned shared map
+
+충돌 뒤 map을 다시 만들거나 물리 기준점의 map 좌표를 재현할 수 없으면, MCL을 기준으로
+공통 변환을 맞춘다. 이 결과는 **MCL-aligned reference**이며, 같은 map에서 MCL 정확도를
+평가하는 GT로 사용할 수 없다. 반면 동일 map에서 두 차량 mocap을 하나의 frame으로 맞추고
+perception 상대차 위치를 평가하는 운영 기준으로는 사용할 수 있다.
+
+`calibration_v2.py`는 tracked-point offset까지 동시에 다시 적합하고 단일 최신 pose를 SPACE로
+저장하므로, pivot/axis를 물리적으로 확정한 현재 절차에는 사용하지 않는다. 대신
+`collect_mcl_aligned_survey`가 timestamp-matched stationary 평균만 CSV에 저장한다.
+
+car3의 MCL을 central domain으로 `/car3/newmcl_pose`에 bridge한 예시는 다음과 같다.
+
+```bash
+ros2 run mocap_localization collect_mcl_aligned_survey \
+  --output /data/car34_mcl_aligned_survey.csv \
+  --vehicle car3 \
+  --mocap-topic /mocap_cal/car3/base \
+  --mcl-topic /car3/newmcl_pose \
+  --duration-sec 3 --min-pairs 20
+```
+
+각 정지 자세에서 `f`(자동 `F01`, `F02`, ... fit) 또는 `h`(자동 `H01`, `H02`, ... holdout)를
+입력하면 즉시 3초 평균을 시작한다. car4 MCL도 **같은 map**을 쓰고
+`/car4/newmcl_pose`로 bridge되어 있다면 같은 CSV에 `--vehicle car4`로 추가한다. 두 차량의
+map이 서로 다르면 car3처럼 기준으로 정한 한 차량 데이터만 fit에 쓰고, 생성된 공통 변환을
+두 candidate YAML에 동일하게 적용한다. 새 map을 쓰는 실험마다 다시 수행하고 calibration
+lap은 MCL 평가 lap에서 제외한다.
+
+수집이 끝나면 현재의 pivot/axis가 identity인 `params3.yaml`/`params4.yaml`을 source로 하여
+candidate만 만든다. 아래 명령은 원본을 수정하지 않는다.
+
+```bash
+ros2 run mocap_localization calibrate_shared_map \
+  --csv /data/car34_mcl_aligned_survey.csv \
+  --params1 ~/f1tenth_ws/src/localization/mocap_localization/params/params3.yaml \
+  --params2 ~/f1tenth_ws/src/localization/mocap_localization/params/params4.yaml \
+  --output-dir /data/car34_mcl_aligned_candidate
+```
+
+fit 8개 이상과 holdout 2개 이상을 권장한다. 입력이 car3뿐이어도 output 두 YAML의
+`rotation`/`translation`은 하나의 값으로 같아야 하며,
+`tracked_point_to_base_*`는 identity/zero로 유지되어야 한다. holdout residual이 충분히 작은지
+확인한 뒤 별도 topic으로 shadow 비교하고 운영 YAML에 반영한다.
+
 ```text
 p_mocap_base = R_axis * p_raw + (q_axis * q_raw) * t_tracked_base
 ```

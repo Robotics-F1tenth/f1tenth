@@ -54,6 +54,16 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
   RENAME calibrate_shared_map)
 
+install(PROGRAMS
+  scripts/collect_shared_map_survey.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME collect_shared_map_survey)
+
+install(PROGRAMS
+  scripts/collect_mcl_aligned_survey.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME collect_mcl_aligned_survey)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
