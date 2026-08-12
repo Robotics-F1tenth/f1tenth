@@ -3,7 +3,7 @@
     input_topic: "/rigid_bodies"
     rigid_body_name: '6'
     output_topic: "/mocap_pose3"
-    output_frame: "mocap"
+    output_frame: "map"
     input_axes: z_up
     rotation: [1.0, 0.0, 0.0,
            0.0, 1.0, 0.0,
