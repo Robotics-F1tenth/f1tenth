@@ -81,9 +81,12 @@ class ImuFrameTest(Node):
         self.declare_parameter("imu_topic", "/imu/data")
         self.declare_parameter("odom_topic", "/odom")
         self.declare_parameter("duration", 40.0)
+        self.declare_parameter("gravity_compensated", False)
         self.imu_topic = self.get_parameter("imu_topic").value
         self.odom_topic = self.get_parameter("odom_topic").value
         self.duration = float(self.get_parameter("duration").value)
+        self.gravity_compensated = bool(
+            self.get_parameter("gravity_compensated").value)
 
         # 드라이버가 RELIABLE 로 발행해도 BEST_EFFORT 구독은 호환된다.
         qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -113,7 +116,8 @@ class ImuFrameTest(Node):
         if el < self.duration:
             if int(el) % 5 == 0:
                 self.get_logger().info(
-                    f"  수집중 {el:.0f}/{self.duration:.0f}s  imu={len(self.imu)} odom={len(self.odom)}")
+                    f"  수집중 {el:.0f}/{self.duration:.0f}s  "
+                    f"imu={len(self.imu)} odom={len(self.odom)}")
             return
         self.report()
         rclpy.shutdown()
@@ -124,33 +128,43 @@ class ImuFrameTest(Node):
                   f"토픽 이름과 드라이버 상태를 확인하세요.")
             return
 
-        I = np.array(self.imu)      # t, ax, ay, az, wz
-        O = np.array(self.odom)     # t, vx, wz
-        I, O = I[I[:, 0].argsort()], O[O[:, 0].argsort()]
+        imu_data = np.array(self.imu)       # t, ax, ay, az, wz
+        odom_data = np.array(self.odom)     # t, vx, wz
+        imu_data = imu_data[imu_data[:, 0].argsort()]
+        odom_data = odom_data[odom_data[:, 0].argsort()]
 
         # odom 을 IMU 시각으로 보간
-        v = np.interp(I[:, 0], O[:, 0], O[:, 1])
-        w_odom = np.interp(I[:, 0], O[:, 0], O[:, 2])
-        t, ax, ay, az, wz = I[:, 0], I[:, 1], I[:, 2], I[:, 3], I[:, 4]
+        v = np.interp(imu_data[:, 0], odom_data[:, 0], odom_data[:, 1])
+        w_odom = np.interp(imu_data[:, 0], odom_data[:, 0], odom_data[:, 2])
+        t, ax, ay, az, wz = (imu_data[:, 0], imu_data[:, 1], imu_data[:, 2],
+                             imu_data[:, 3], imu_data[:, 4])
 
         moving = np.abs(v) > MIN_SPEED
         print("\n" + "=" * 72)
         print(f"IMU 축 규약 검사 결과   ({self.imu_topic})")
         print("=" * 72)
-        print(f"  정지 시 a_z 중앙값 = {np.median(az[~moving]) if (~moving).sum() > 20 else float('nan'):+.2f} "
-              f"m/s^2   (+9.8 = z축 정상 / -9.8 = 상하 뒤집힘)")
-        print(f"  주행 표본 {int(moving.sum())} / 전체 {len(I)}\n")
+        az_rest = np.median(az[~moving]) if (~moving).sum() > 20 else float("nan")
+        if self.gravity_compensated:
+            az_hint = "중력보상 토픽: 정지 시 0 근처가 정상"
+        else:
+            az_hint = "+9.8 = z축 정상 / -9.8 = 상하 뒤집힘"
+        print(f"  정지 시 a_z 중앙값 = {az_rest:+.2f} m/s^2   ({az_hint})")
+        print(f"  주행 표본 {int(moving.sum())} / 전체 {len(imu_data)}\n")
 
         # 1) 자이로 부호 — /odom 의 각속도(조향 기반)와 비교. 크기는 안 믿고 부호만 본다.
         s1, c1, n1 = regress(w_odom[moving], wz[moving])
         print(verdict(s1, c1, n1, "자이로 z"))
 
-        gyro_ok = math.isfinite(s1) and s1 > 0 and abs(c1) >= MIN_ABS_CORR and n1 >= MIN_SAMPLES
+        gyro_known = (math.isfinite(s1) and abs(c1) >= MIN_ABS_CORR
+                      and n1 >= MIN_SAMPLES)
 
-        # 2) 횡가속 — 정상선회 항등식 a_y = v_x * omega. 자이로 부호가 확정돼야 의미 있음.
+        # 2) 횡가속 — 정상선회 항등식 a_y = v_x * omega.
+        # 자이로가 반전돼 있으면 먼저 부호를 바로잡아야, 자이로와 a_y가 동시에
+        # 반전된 경우에도 두 오류가 상쇄되지 않고 a_y 반전을 검출할 수 있다.
         turning = moving & (np.abs(wz) > MIN_TURN_RATE)
-        s2, c2, n2 = regress((v * wz)[turning], ay[turning])
-        if gyro_ok:
+        wz_vehicle = wz if not gyro_known or s1 > 0 else -wz
+        s2, c2, n2 = regress((v * wz_vehicle)[turning], ay[turning])
+        if gyro_known:
             print(verdict(s2, c2, n2, "횡가속 a_y"))
         else:
             print(f"  {'횡가속 a_y':<22} 판정보류 — 자이로 부호가 먼저 확정돼야 함 "
@@ -163,10 +177,19 @@ class ImuFrameTest(Node):
 
         # 종합
         print("\n" + "-" * 72)
+
+        def decisive(slope, corr, count):
+            return (math.isfinite(slope) and abs(corr) >= MIN_ABS_CORR
+                    and count >= MIN_SAMPLES)
+        all_decisive = (decisive(s1, c1, n1) and decisive(s2, c2, n2)
+                        and decisive(s3, c3, n3))
         inverted = [nm for nm, s, c, n in
                     (("자이로 z", s1, c1, n1), ("a_y", s2, c2, n2), ("a_x", s3, c3, n3))
-                    if math.isfinite(s) and s < 0 and abs(c) >= MIN_ABS_CORR and n >= MIN_SAMPLES]
-        if not inverted:
+                    if decisive(s, c, n) and s < 0]
+        if not all_decisive:
+            print("  판정: 판정보류 — 주행 표본 또는 신호 변화가 부족합니다.")
+            print("  -> 이 결과로 IMU/소프트웨어 보정값을 변경하면 안 됩니다.")
+        elif not inverted:
             print("  판정: 반전된 축 없음.")
             print("  -> ekf_pose 의 imu_axis_yaw180 을 false 로 내려야 합니다.")
             print("     ⚠ 단, Coriolis 부호와 세트입니다. 문서 §3 을 먼저 읽으세요.")
