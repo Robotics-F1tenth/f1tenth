@@ -477,7 +477,8 @@ ros2 run mocap_localization collect_mcl_aligned_survey \
   --duration-sec 3 --min-pairs 20
 ```
 
-각 정지 자세에서 `C01 fit` 또는 `C09 holdout`을 입력한다. car4 MCL도 **같은 map**을 쓰고
+각 정지 자세에서 `f`(자동 `F01`, `F02`, ... fit) 또는 `h`(자동 `H01`, `H02`, ... holdout)를
+입력하면 즉시 3초 평균을 시작한다. car4 MCL도 **같은 map**을 쓰고
 `/car4/newmcl_pose`로 bridge되어 있다면 같은 CSV에 `--vehicle car4`로 추가한다. 두 차량의
 map이 서로 다르면 car3처럼 기준으로 정한 한 차량 데이터만 fit에 쓰고, 생성된 공통 변환을
 두 candidate YAML에 동일하게 적용한다. 새 map을 쓰는 실험마다 다시 수행하고 calibration

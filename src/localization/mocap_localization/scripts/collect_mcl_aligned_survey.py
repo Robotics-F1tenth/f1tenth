@@ -197,6 +197,21 @@ def make_row(point_id: str, split: str, vehicle: str, capture: Capture) -> dict[
     }
 
 
+def next_point_id(rows: list[dict[str, str]], vehicle: str, split: str) -> str:
+    """Return the next automatic fit or holdout identifier for one vehicle."""
+    prefix = "F" if split == "fit" else "H"
+    suffix = f"_{vehicle}"
+    used = {
+        row["point_id"][:-len(suffix)]
+        for row in rows
+        if row["point_id"].endswith(suffix)
+    }
+    number = 1
+    while f"{prefix}{number:02d}" in used:
+        number += 1
+    return f"{prefix}{number:02d}"
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Create the command-line parser."""
     parser = argparse.ArgumentParser(
@@ -232,9 +247,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    print("\nCommands: <point_id> <fit|holdout>")
-    print("Example:  C01 fit")
-    print("Move only the selected vehicle to a stable, well-localized pose, then press ENTER.")
+    print("\nCommands: f = fit capture, h = holdout capture, q = finish")
+    print("Optional explicit form: <point_id> <fit|holdout>")
+    print("Each f/h immediately captures the next 3-second stationary window.")
     print("Type q to finish. Keep calibration and evaluation laps separate.\n")
 
     rclpy.init(args=None)
@@ -245,19 +260,26 @@ def main(arguments: Sequence[str] | None = None) -> int:
             command = input("mcl-survey> ").strip()
             if command.lower() in {"q", "quit", "exit"}:
                 break
-            fields = command.split()
-            if len(fields) != 2 or fields[1].lower() not in {"fit", "holdout"}:
-                print("Enter: <point_id> <fit|holdout>, or q")
-                continue
-            point_id, split = fields[0], fields[1].lower()
+            if command.lower() in {"f", "fit"}:
+                split = "fit"
+                point_id = next_point_id(rows, args.vehicle, split)
+            elif command.lower() in {"h", "hold", "holdout"}:
+                split = "holdout"
+                point_id = next_point_id(rows, args.vehicle, split)
+            else:
+                fields = command.split()
+                if len(fields) != 2 or fields[1].lower() not in {"fit", "holdout"}:
+                    print("Enter: f, h, <point_id> <fit|holdout>, or q")
+                    continue
+                point_id, split = fields[0], fields[1].lower()
             row_id = f"{point_id}_{args.vehicle}"
             if not point_id or row_id in existing_ids:
                 print(f"ERROR: point id is empty or already recorded: {row_id}")
                 continue
             try:
-                input(
-                    f"Keep {args.vehicle} still, then press ENTER to capture "
-                    f"{args.duration_sec:.1f} s: ")
+                print(
+                    f"Capturing {row_id} for {args.duration_sec:.1f} s; "
+                    f"keep {args.vehicle} still.")
                 capture = collector.capture(args.duration_sec, args.min_pairs)
             except (KeyboardInterrupt, RuntimeError) as exc:
                 print(f"Capture cancelled: {exc}")
