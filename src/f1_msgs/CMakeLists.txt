@@ -26,6 +26,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Rpy.msg"
   "msg/Waypoint.msg"
   "msg/WaypointArray.msg"
+  "msg/CollisionEvent.msg"
+  "msg/LapResult.msg"
   DEPENDENCIES std_msgs geometry_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 
