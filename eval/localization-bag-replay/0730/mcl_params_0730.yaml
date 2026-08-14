@@ -1,0 +1,106 @@
+mcl:
+  ros__parameters:
+    use_sim_time: true
+
+    #Input messages
+    scan_name: "scan"
+    odom_name: "odom"
+    map_name: "map"
+
+    #Output messages
+    pose_name: "newmcl_pose"
+    particles_name: "newmcl_particles"
+    unknown_scan_name: "unknown_scan"
+    residual_errors_name: "residual_errors"
+    reliability_marker_name: "reliability_marker"
+    gl_sampled_poses_name: "gl_sampled_poses"
+
+    #TF
+    laser_frame: "laser"
+    base_link_frame: "base_link"
+    map_frame: "map"
+    odom_frame: "odom"
+    broadcast_tf: true
+    use_odom_tf: false
+
+    #Particle filter parameters
+    # 2026-07-30 rosbag2_2026_07_30-22_25_24 (map7). First attempt used /mocap_pose1(GT) at
+    # t=0 (x=1.83,y=-4.15) -- turned out t=0 sits inside an auto-detected GT glitch window
+    # ([-1.3,+6.0]s), ~2m off the real start -> MCL diverged. Using the bag's own baked
+    # /newmcl_pose at t~0 instead (the live system's own converged estimate, validated
+    # good by the direct baked-vs-GT comparison after the glitch window ends).
+    initial_pose_x: -0.198
+    initial_pose_y: -3.357
+    initial_pose_yaw: 11.09
+    initial_noise_x: 0.05
+    initial_noise_y: 0.05
+    initial_noise_yaw: 0.02
+    particle_num: 500
+    use_augmented_mcl: false
+    add_random_particles_in_resampling: true
+    random_particles_rate: 0.1
+    random_particles_noise: [0.05, 0.05, 0.02]
+
+    # Motion model parameters
+    odom_noise_ddm: [0.1, 0.1, 0.1, 0.1]
+    odom_noise_odm: [4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 8.0]
+    use_omni_directional_model: false
+
+    #measurement model
+    measurement_model_type: 2
+    scan_step: 5
+    z_short: 0.03
+    z_max: 0.04
+    z_rand: 0.03
+    z_hit: 0.9
+    var_hit: 0.01
+    lambda_short: 1.0
+    lambda_unknown: 0.05
+    known_class_prior: 0.7
+    unknown_scan_prob_threshold: 0.9
+    alpha_slow: 0.001
+    alpha_fast: 0.1
+    reject_unknown_scan: false
+    publish_unknown_scan: false
+    publish_residual_errors: false
+    resample_threshold_ess: 0.5
+    resample_thresholds: [0.2, 0.2, 0.2, 0.02, -9999.0]
+
+    estimate_reliability: false
+    rel_trans_ddm: [0.0, 0.0]
+    rel_trans_odm: [0.0, 0.0, 0.0]
+
+    classifier_type: 0
+    mae_classifier_dir: "/home/a/f1tenth/src/f1_localization/als_ros/classifiers/MAE/"
+
+    use_gl_pose_sampler: false
+    fuse_gl_pose_sampler_only_unreliable: false
+    gl_sampled_pose_time_th: 1.0
+    gmm_positional_variance: 0.01
+    gmm_angular_variance: 0.5
+    pred_dist_unif_rate: 0.05
+
+    write_pose: false
+    pose_log_file: "/home/a/f1tenth_ws/src/localization/f1_localization/als_ros/logs/pose_log.txt"
+
+    mae_max_residual_error: 0.5
+    mae_histogram_bin_width: 0.05
+
+    localization_hz: 50.0
+    transform_tolerance: 0.05
+
+    f1_state_name: "f1_state_mcl"
+    mode_name: "normal"
+    imu_name: "ekf/imu/data"
+    imu_rotation_yaw: 0.0
+    imu_rotation_pitch: 0.0
+    imu_rotation_roll: 0.0
+
+state_ekf:
+  ros__parameters:
+    filter_mode: LPF
+    window_size: 10
+    dt: 0.005
+    lambda: 0.5
+    process_noise_covariance: [0.01,0.0,0.0,0.01]
+    measurement_noise_covariance: [0.5,0.0,0.0,0.5]

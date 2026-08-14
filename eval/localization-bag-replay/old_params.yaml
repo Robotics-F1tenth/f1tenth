@@ -1,0 +1,103 @@
+map_publisher:
+  ros__parameters:
+    pgm_file_path: /home/a/f1tenth_ws/src/localization/f1_localization/als_ros/maps/map9.pgm
+    yaml_file_path: /home/a/f1tenth_ws/src/localization/f1_localization/als_ros/maps/map9.yaml
+mcl:
+  ros__parameters:
+    use_sim_time: true
+    add_random_particles_in_resampling: true
+    alpha_fast: 0.1
+    alpha_slow: 0.001
+    base_link_frame: base_link
+    broadcast_tf: true
+    classifier_type: 0
+    estimate_reliability: true
+    f1_state_name: f1_state_mcl
+    fuse_gl_pose_sampler_only_unreliable: false
+    gl_sampled_pose_time_th: 1.0
+    gl_sampled_poses_name: gl_sampled_poses
+    gmm_angular_variance: 0.5
+    gmm_positional_variance: 0.01
+    imu_name: ekf/imu/data
+    imu_rotation_pitch: 0.0
+    imu_rotation_roll: 0.0
+    imu_rotation_yaw: 0.0
+    initial_noise_x: 0.05
+    initial_noise_y: 0.05
+    initial_noise_yaw: 0.02
+    initial_pose_x: -0.1805
+    initial_pose_y: -9.2037
+    initial_pose_yaw: 175.58
+    known_class_prior: 0.9
+    lambda_short: 1.0
+    lambda_unknown: 0.05
+    laser_frame: laser
+    localization_hz: 50.0
+    mae_classifier_dir: /home/a/f1tenth/src/localization/f1_localization/als_ros/classifiers/MAE/
+    mae_histogram_bin_width: 0.05
+    mae_max_residual_error: 0.5
+    map_frame: map
+    map_name: map
+    measurement_model_type: 2
+    mode_name: normal
+    odom_frame: odom
+    odom_name: odom
+    odom_noise_ddm:
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    odom_noise_odm:
+    - 4.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 8.0
+    particle_num: 450
+    particles_name: mcl_particles
+    pose_log_file: /tmp/claude-1000/-home-a-f1tenth/3fda53a2-f142-4ee1-ba13-00bfbdc2ff66/scratchpad/loc_eval/pose_log_old.txt
+    pose_name: newmcl_pose
+    pred_dist_unif_rate: 0.05
+    publish_residual_errors: false
+    publish_unknown_scan: false
+    random_particles_noise:
+    - 0.05
+    - 0.05
+    - 0.02
+    random_particles_rate: 0.1
+    reject_unknown_scan: false
+    rel_trans_ddm:
+    - 0.0
+    - 0.0
+    rel_trans_odm:
+    - 0.0
+    - 0.0
+    - 0.0
+    reliability_marker_name: reliability_marker
+    resample_threshold_ess: 0.5
+    resample_thresholds:
+    - 0.2
+    - 0.2
+    - 0.2
+    - 0.02
+    - -9999.0
+    residual_errors_name: residual_errors
+    scan_name: scan
+    scan_step: 6
+    transform_tolerance: 0.05
+    unknown_scan_name: unknown_scan
+    unknown_scan_prob_threshold: 0.9
+    use_augmented_mcl: false
+    use_gl_pose_sampler: false
+    use_odom_tf: false
+    use_omni_directional_model: false
+    var_hit: 0.025
+    write_pose: false
+    z_hit: 0.65
+    z_max: 0.04
+    z_rand: 0.06
+    z_short: 0.03

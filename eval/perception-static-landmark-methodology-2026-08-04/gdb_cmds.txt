@@ -1,0 +1,10 @@
+set pagination off
+set confirm off
+run --ros-args -r __node:=perception_node --params-file /home/a/f1tenth/install/f1_perception/share/f1_perception/config/perception/f1tenth.yaml -p use_sim_time:=true
+echo \n===== BACKTRACE =====\n
+bt
+echo \n===== FRAME DETAIL =====\n
+bt full
+echo \n===== REGISTERS/FAULT =====\n
+info frame
+quit
