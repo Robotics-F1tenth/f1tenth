@@ -1,4 +1,4 @@
-# VESC 정지 명령 부재 — deadman 뗀 후에도 계속 움직임
+# VESC deadman 해제 후 정지 명령 부재 조사
 
 발견: 2026-07-29 (driver 이식 검증 중 우연히 발견) · 상태: **미해결, 조사만 완료**
 
@@ -71,4 +71,4 @@ colcon build --packages-select vesc_ackermann vesc_driver
 
 - 클리핑 경고(`below/above limit, clipping`)는 이 이슈와 무관. 좌우 게인이 서보 물리
   한계를 일부러 넘도록 잡혀 있어 양쪽 끝에서 클립되는 것은 **정상**(설계상 의도됨).
-  `integration/workspace_unification.md`의 Phase A' 검증 결과 참조.
+  [`integration/workspace_unification.md`](../../integration/workspace_unification.md)의 Phase A' 검증 결과 참조.

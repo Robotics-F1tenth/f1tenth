@@ -10,6 +10,13 @@ single runbook for:
 - frame-delivery diagnosis
 - experiment bag collection and evaluation quality gates
 
+Additional package records:
+
+- [`mocap_odom` build exclusion](mocap-odom-package-build-exclusion.md): why the
+  legacy package stays disabled and what must be checked before re-enabling it.
+- [mocap package rename review](mocap-localization-package-rename-review.md): why
+  the current package name is misleading, the affected files, and the pending decision.
+
 ## Repository changes made during the 2026-08-07 audit
 
 - `mocap_localization.cpp` now preserves `/rigid_bodies.header.stamp` in the
