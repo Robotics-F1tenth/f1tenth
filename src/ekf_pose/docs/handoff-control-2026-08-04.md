@@ -84,6 +84,6 @@ A/B(조건당 6회)까지 끝났다. 결과는
 ## 5. 파일 위치
 
 - 전체 분석: `src/ekf_pose/docs/ekf-pose-analysis-2026-08.md`
-- retrodiction 재현 도구: `eval/loc_replay/0730/retro_eval/`
+- retrodiction 재현 도구: `eval/localization-bag-replay/0730/retro_eval/`
 - 코드: `src/ekf_pose/src/ekf_pose_estimator.cpp`, `config/ekf_pose.yaml`
 - 관련 control 문서: `src/control/smppi_cuda_controller/docs/smppi-diagnosis-2026-08.md`

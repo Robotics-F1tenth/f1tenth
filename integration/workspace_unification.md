@@ -7,11 +7,11 @@
 이 문서는 **워크스페이스 통합(경로·설정·이관)에만** 집중한다.
 
 > **범위 조정 1**: driver 이식 검증 중 발견한 "deadman 떼도 계속 움직이는" 문제는
-> 코드 통합과 무관한 별도 이슈라 [vesc-deadman-command-timeout.md](vesc-deadman-command-timeout.md)로
+> 코드 통합과 무관한 별도 이슈라 [VESC deadman 명령 timeout 조사](../docs/vehicle/vesc-deadman-command-timeout-investigation.md)로
 > 분리했다.
 >
 > **범위 조정 2**: `mocap_localization` 패키지 이름 변경(내용이 GT 발행/캘리브레이션만 남아
-> 이름과 안 맞음)은 팀 논의 + 대공사가 필요해 [mocap-package-rename.md](mocap-package-rename.md)로
+> 이름과 안 맞음)은 팀 논의 + 대공사가 필요해 [mocap 패키지 이름 변경 검토](../src/localization/mocap_localization/docs/mocap-localization-package-rename-review.md)로
 > 분리했다. 아직 미착수.
 
 ---

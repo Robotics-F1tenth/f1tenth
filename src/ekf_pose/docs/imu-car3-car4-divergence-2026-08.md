@@ -161,7 +161,7 @@ launch argument**로 쪼개는 것만으로도 충분하다 — `base_link→las
 
 `base_link→laser` 정적 TF도 워크스페이스/bag마다 다른 값(`0.27/0/0.11` vs
 `0.11/0/0`)을 쓰고 있는 게 확인됨 — IMU와 같은 "차량별 물리값이 공유 설정에
-하드코딩돼 있다"는 근본 패턴. `eval/loc_replay/`의 replay 하니스는 bag의
+하드코딩돼 있다"는 근본 패턴. `eval/localization-bag-replay/`의 replay 하니스는 bag의
 `/tf_static`을 재생하도록 이미 고쳐뒀지만, **실제 launch 파일들(`bag_mcl.launch.py`
 등)의 하드코딩은 아직 안 고침** — IMU 작업과 함께 정리하면 좋음.
 

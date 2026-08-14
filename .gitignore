@@ -42,12 +42,18 @@ logs/
 log/
 .continue/
 .omc/
-docs/
-!src/localization/mocap_localization/docs/
-!src/localization/mocap_localization/docs/**
-eval/
+# Share all project and package documentation. Seminar material is personal.
+/docs/seminar/
+# Evaluation outputs are large, but their docs, tools, and configs must remain
+# reproducible. Ignore everything first, then opt source-like files back in.
+eval/**
+!eval/**/
+!eval/**/*.md
+!eval/**/*.py
+!eval/**/*.sh
+!eval/**/*.yaml
+!eval/**/*.yml
+!eval/perception-static-landmark-methodology-2026-08-04/gdb_cmds.txt
 pose_to_tf.py
 maps/my_map.pgm
 maps/my_map.yaml
-!src/ekf_pose/docs/
-!src/perception/docs/
