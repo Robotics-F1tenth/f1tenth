@@ -16,7 +16,7 @@ mcl:
     gl_sampled_poses_name: "gl_sampled_poses"
 
 
-    #TF 
+    #TF
     laser_frame: "laser"
     base_link_frame: "base_link"
     map_frame: "map"
@@ -84,7 +84,7 @@ mcl:
 
     classifier_type: 0
     mae_classifier_dir: "/home/a/f1tenth/src/f1_localization/als_ros/classifiers/MAE/"
-    
+
     use_gl_pose_sampler: false
     fuse_gl_pose_sampler_only_unreliable: false
     gl_sampled_pose_time_th: 1.0
