@@ -201,12 +201,11 @@ void EKFPoseEstimator::initialize_state(const PoseMeasurement& pose)
 //    vy  += (ay - vx*yaw_rate) * dt
 //    yaw_rate = IMU measurement (직접 대입)
 //
-//  ⚠⚠ Coriolis 부호와 imu_axis_yaw180 은 **반드시 세트로** 다뤄야 한다.
-//     2026-08-03 실차 bag + mocap GT 검증 결과, 이 차량의 /imu/data 는
-//     ax, ay 가 차체 프레임 대비 부호 반전되어 있다(자이로 z 는 정상).
-//     예전 코드는 Coriolis 부호도 반대여서 두 오류가 서로 상쇄되고 있었다.
-//     한쪽만 고치면 v_y 적분 오차가 0.36 → 2.98 m/s (8배) 로 폭발한다.
-//     상세: docs/ekf-pose-analysis-2026-08.md §2, §3
+//  ⚠⚠ Coriolis 부호는 차체 FLU 입력을 전제로 한다. 2026-08-03의 과거 3호차
+//     bag은 ax/ay가 반전돼 imu_axis_yaw180=true가 필요했지만, 현재 3호차는
+//     firmware identity + 드라이버 publisher 보정 후 imu_frame_test에서 세 축
+//     정상으로 검증돼 기본값 false를 사용한다. 과거 bag/장착 변경 시에는 이
+//     보정과 Coriolis 부호를 함께 imu_frame_test로 재검증해야 한다.
 // ════════════════════════════════════════════════════════════════
 void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
 {
@@ -228,8 +227,7 @@ void EKFPoseEstimator::ekf_predict(const ImuMeasurement& imu)
     // yaw_rate 는 IMU에서 직접 받아 사용
     double yr       = imu.yaw_rate;
 
-    // IMU 가속도 축 보정 — 이 차량은 IMU 가 차체 대비 yaw 180도 회전 장착이라
-    // ax, ay 부호가 반대다 (자이로 z 는 정상). 위 주석의 경고 참고.
+    // Legacy bag compatibility: current car-3 /imu/data is already body FLU.
     const double ax = imu_axis_yaw180_ ? -imu.ax : imu.ax;
     const double ay = imu_axis_yaw180_ ? -imu.ay : imu.ay;
 
