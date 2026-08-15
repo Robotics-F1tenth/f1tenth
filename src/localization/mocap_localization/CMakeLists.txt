@@ -64,6 +64,11 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
   RENAME collect_mcl_aligned_survey)
 
+install(PROGRAMS
+  scripts/auto_mcl_mocap_calibration.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME auto_mcl_mocap_calibration)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
