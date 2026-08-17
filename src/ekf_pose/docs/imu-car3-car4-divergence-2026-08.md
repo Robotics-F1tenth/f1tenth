@@ -17,7 +17,7 @@ alias imu='sudo chmod 777 /dev/tty* && cd ~/f1tenth_ws/ && source install/setup.
 | 차량 | 펌웨어 `sensor2vehicle` | ROS 드라이버 보정 | 검증 상태 |
 |---|---|---|---|
 | 3호차 | Euler `[0, 0, 0]` identity, NVM 저장 | `imu_data_roll180: true` | 2026-08-15 실차 `imu_frame_test` 통과 |
-| 4호차 | identity `[0,0,0]`을 다시 쓰도록 요청됨. `save_settings: true`이므로 launch가 정상 완료됐다면 NVM에도 저장됨 | `imu_data_roll180: true` 적용. `pacejka_sysid` 기본/YAML도 `imu_rotation_roll=0.0`으로 변경 | **2026-08-17 실차 `imu_frame_test` 통과**. NVM save 성공 여부만 시작 로그로 추후 확인 |
+| 4호차 | identity `[0,0,0]`을 다시 쓰도록 요청됨. `save_settings: true`이므로 launch가 정상 완료됐다면 NVM에도 저장됨 | `imu_data_roll180: true` 적용. `pacejka_sysid` runtime parameter도 `imu_rotation_roll=0.0` 확인 | **2026-08-17 실차 `imu_frame_test` 및 좌/우회전 부호 검사 통과**. NVM save 성공 여부만 시작 로그로 추후 확인 |
 
 3호차의 현재 `/imu/data`는 차체 FLU 기준이다. 따라서 앞으로 3호차에서
 `ekf_pose`를 실행할 때 `imu_axis_yaw180`은 `false`여야 한다. 4호차도 위
@@ -51,6 +51,20 @@ driver가 실행 중인 동안에는 같은 publisher-side roll180이 적용되�
 전제로 한 Coriolis 부호(`vx += ax + vy·yaw_rate`, `vy += ay - vx·yaw_rate`)를
 그대로 사용한다. 기울기는 `/odom` 기반 크기 비교이므로, 이 결과는 축 **부호**
 판정이지 IMU/odom gain 보정 근거는 아니다.
+
+### 0.2 SysID runtime 및 좌/우회전 최종 확인 (2026-08-17)
+
+재빌드·재시작한 `pacejka_sysid`에서 다음을 확인했다.
+
+```text
+ros2 param get /pacejka_sysid imu_rotation_roll
+Double value is: 0.0
+```
+
+그 상태로 직접 `/imu/data`를 확인한 결과, 전진 좌회전에서는
+`angular_velocity.z > 0` 및 `linear_acceleration.y > 0`, 전진 우회전에서는 두 값이
+모두 `< 0`였다. 따라서 SysID가 사용하는 `ω`, `a_y` 입력은 FLU 부호와 일치하며,
+추가 roll180 보정은 적용하지 않는다.
 
 ## 1. 3호차에서 수행한 변경
 
@@ -242,9 +256,8 @@ ros2 param get /microstrain_inertial_driver imu_data_roll180
 ros2 run ekf_pose imu_frame_test
 ```
 
-4호차 검사는 위 조건을 만족해 통과했다. 다음 SysID 실행 전에는 node를 재시작한 뒤
-`ros2 param get /pacejka_sysid imu_rotation_roll`로 `0.0`이 실제 적용됐는지만
-확인한다.
+4호차 검사는 위 조건을 만족해 통과했으며, SysID 재시작 뒤
+`imu_rotation_roll=0.0`과 좌/우회전 `ω`·`a_y` 부호까지 확인했다.
 
 ```bash
 git log -p --follow -- src/control/pacejka_sysid/params/sysid_node.yaml | \
@@ -259,7 +272,7 @@ git log -p --follow -- src/control/pacejka_sysid/params/sysid_node.yaml | \
 - [ ] 4호차에서 2026-08-17 launch의 시작 로그를 확보해 NVM 저장 성공 여부를 확인.
 - [x] 4호차 `imu_frame_test`를 새 YAML 활성 상태에서 수행 — 2026-08-17 세 축 부호 통과.
 - [x] 3·4호차 live SysID 이중 roll 보정 해제 — node 기본값/YAML `0.0`, commit `1b68ebb`.
-- [ ] SysID node 재시작 후 live parameter가 `imu_rotation_roll=0.0`인지 확인하고,
-      저속 주행에서 좌회전 `ω>0` 및 `a_y>0`를 한 번 더 확인.
+- [x] SysID node 재시작 후 live parameter `imu_rotation_roll=0.0` 및 좌/우회전
+      `ω`·`a_y` 부호 확인 — 좌회전 둘 다 양수, 우회전 둘 다 음수.
 - [ ] 차량별 파일명을 명확히 분리하고, `f1tenth_imu_xy_corrected.yml`처럼 범용으로
       보이는 3호차 설정은 제거 또는 안전한 `save_settings: false` 기본 파일로 교체.
