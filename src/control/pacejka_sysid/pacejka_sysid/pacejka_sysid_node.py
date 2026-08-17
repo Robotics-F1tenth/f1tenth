@@ -95,12 +95,11 @@ class PacejkaSysId(Node):
         self.declare_parameter('prompt_before_export', False)
         self.declare_parameter('min_collect_speed', 1.0)     # 원본 하드코딩 'v_x > 1'
 
-        # IMU 기반 v_y 조립기 (state_source='imu_odom' 일 때만 사용)
-        # 이 워크스페이스의 MicroStrain 센서는 축은 FLU 로 내보내지만 가속도 부호가
-        # REP-145 표준(정지 시 a_z=+9.81)과 반대로 나온다 (실측: a_z=-9.81).
-        # als_ros/mcl.launch.py:48 도 같은 /imu/data 에 대해 이미 180 을 기본값으로 쓴다.
-        # 다른 하드웨어라면 다를 수 있으니 state_assembler.py 상단의 검증 절차로 확인할 것.
-        self.declare_parameter('imu_rotation_roll', 180.0)   # deg
+        # IMU 기반 v_y 조립기 (state_source='imu_odom' 일 때만 사용).
+        # 현재 실차 driver는 imu_data_roll180으로 /imu/data를 FLU로 보정한다.
+        # 여기서 다시 roll=180을 적용하면 a_y, a_z, gyro_z가 원래 부호로 되돌아간다.
+        # raw/z-down IMU를 명시적으로 사용할 때만 launch/YAML에서 180으로 override한다.
+        self.declare_parameter('imu_rotation_roll', 0.0)     # deg
         self.declare_parameter('imu_rotation_pitch', 0.0)
         self.declare_parameter('imu_rotation_yaw', 0.0)
         self.declare_parameter('vy_washout_tau', 2.0)        # s
