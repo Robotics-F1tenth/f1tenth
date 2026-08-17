@@ -475,6 +475,13 @@ ros2 run mocap_localization collect_mcl_aligned_survey \
   --mocap-topic /mocap_cal/car3/base \
   --mcl-topic /car3/newmcl_pose \
   --duration-sec 3 --min-pairs 20
+
+ros2 run mocap_localization collect_mcl_aligned_survey \
+  --output /data/car34_mcl_aligned_survey.csv \
+  --vehicle car4 \
+  --mocap-topic /mocap_cal/car4/base \
+  --mcl-topic /car4/newmcl_pose \
+  --duration-sec 3 --min-pairs 20
 ```
 
 각 정지 자세에서 `f`(자동 `F01`, `F02`, ... fit) 또는 `h`(자동 `H01`, `H02`, ... holdout)를
@@ -551,6 +558,41 @@ MCL을 reference로 쓰고 latest message만 pairing하므로 최종 캘리브�
 
 하지만 알고리즘 자체의 shared fit/측량 문제는 남아 있다. 새 측량 데이터 없이 현재
 `-91도` 같은 값을 두 운영 파일에 바로 복사하지 않는다.
+
+### 8.5 저속 MCL lap 기반 자동 보정 (운영용)
+
+map의 코스는 자주 바뀌지만 방의 Motive 좌표계는 유지되고, 저속 MCL이 충분히 안정적이면
+정지점 수동 수집 대신 `auto_mcl_mocap_calibration`을 사용한다. 이 도구는 raw
+`/rigid_bodies`와 차량별 MCL을 실행 중에 수집한다. car3와 car4를 **차례로** 저속으로
+여러 바퀴 주행한 뒤 `Ctrl-C`하면 shared `T_map_mocap`과 차량별 rigid-body-to-`base_link`
+offset을 출력한다. `params3.yaml`/`params4.yaml`을 읽거나 수정하지 않으며 JSON report만
+선택적으로 쓴다.
+
+Motive가 Y-up이면 MCL/ROS 평면으로 변환되는 축은 `(x, y, z)_motive -> (x, -z, y)_ROS`다.
+따라서 출력의 Motive pivot X/Z와 Motive +Y yaw만 Builder에 적용 후보가 된다. lidar MCL은
+높이(Y), roll, pitch를 관측할 수 없으므로 그 값은 자동 보정 대상이 아니다.
+
+브릿지 PC에서 car3/car4 reverse MCL bridge를 켜고 실행한다. 실제 topic 이름은 현장
+`ros2 topic echo ... --once`로 확인한다.
+
+```bash
+ros2 run mocap_localization auto_mcl_mocap_calibration \
+  --rigid-topic /rigid_bodies \
+  --car3-mcl-topic /car3/newmcl_pose \
+  --car4-mcl-topic /car4/newmcl_pose \
+  --motive-up-axis y \
+  --max-speed-mps 0.7 \
+  --report ~/mocap_calibration/auto_cal_20260815.json
+```
+
+현재 Motive Streaming setting이 Z-up이면 반드시 `--motive-up-axis z`를 쓴다. 이는
+runtime YAML의 `input_axes`와 같아야 한다. car3, car4 각각에서 직선과 좌/우 코너가 섞인
+저속 lap을 1~2분 기록하고 종료한다. 한 차량만 기록되면 해당 차량의 candidate만 진단할 수
+있으며, 두 차량을 모두 기록해야 shared transform과 두 차량 offset의 일관성을 검증할 수 있다.
+
+결과는 **MCL-aligned operational calibration**이다. calibration lap 자체로 MCL 정확도를
+평가하지 않고, 별도 lap에서 candidate shadow/holdout과 car3-car4 상대 pose를 확인한 뒤에만
+Motive pivot/axis나 candidate YAML에 반영한다.
 
 ## 9. 프레임 batching 진단
 
