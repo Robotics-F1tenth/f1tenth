@@ -24,13 +24,10 @@
 # helpers/solve_pacejka.py 의 alpha_f = -atan((v_y+omega*l_f)/v_x)+delta 참고)
 #
 # imu_rotation_roll/pitch/yaw 는 실제 IMU 출력을 이 목표 좌표계로 맞추는 보정값이다.
-# "축이 FLU 방향을 향한다"는 것과 "가속도 부호가 REP-145 표준을 따른다"는 것은
-# 별개다 — 드라이버가 축은 FLU 로 내보내면서 가속도 부호는 중력 벡터 방향 그대로
-# (반력이 아니라) 낼 수 있다. 이 워크스페이스의 MicroStrain 센서가 그런 경우다:
-# 정지 시 a_z 실측값이 -9.81 이었다 (als_ros/MCL.h:509-514 의 같은 토픽에 대한
-# 관찰과 일치, mcl.launch.py:48 도 이미 180 을 기본값으로 씀). 그래서 기본값을
-# roll=180 으로 둔다 — (x,y,z) -> (x,-y,-z) 로 뒤집어야 a_z 가 +9.81 로,
-# omega/a_y 부호가 목표 좌표계와 맞게 나온다.
+# 현재 live MicroStrain driver는 imu_data_roll180으로 /imu/data를 이미 FLU로
+# 보정한다. 2026-08-17 3·4호차 실차 검사에서 정지 a_z>0, 좌회전 omega/a_y>0,
+# 우회전 omega/a_y<0를 확인했으므로 기본값은 추가 회전 없는 roll=0이다.
+# raw/z-down IMU 또는 과거 bag을 직접 쓸 때만 roll=180을 명시적으로 전달한다.
 #
 # ⚠ 그래도 다른 하드웨어/장착 상태에서는 다를 수 있으니 맹신하지 말고 확인할 것
 # (README "문제 해결" 참고):
@@ -64,7 +61,7 @@ class StateAssembler:
     그 줄을 수정하지 않기 위해 여기서 규약을 맞춰 준다.
     """
 
-    def __init__(self, l_r, imu_rotation_rpy=(math.pi, 0.0, 0.0),
+    def __init__(self, l_r, imu_rotation_rpy=(0.0, 0.0, 0.0),
                  washout_tau=2.0, imu_to_cog_x=0.0, bias_calib_samples=200,
                  standstill_speed=0.05, min_speed=1.0, logger=None):
         self.l_r = float(l_r)

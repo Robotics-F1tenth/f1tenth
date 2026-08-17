@@ -1,249 +1,278 @@
-# IMU 축 보정 — 3호차/4호차 상태 분석과 통일 작업 (2026-08)
+# IMU 축 보정 — 3·4호차 FLU 검증 완료 (2026-08-17)
 
-3호차에서 이어서 작업하기 위한 인계 문서. 증상 → 분석 → 결론 → 남은 작업 순.
-관련 문서: `ekf-pose-analysis-2026-08.md`(§2, §2.5, §3), `handoff-control-2026-08-04.md`.
-
-## 0. 결론 먼저
-
-**3호차·4호차는 IMU 하드웨어가 물리적으로 동일하게 장착돼 있고, 실제로 필요한 보정도
-같다(raw 센서 기준 roll180 하나).** 다만 지금은 그 보정이 **레이어마다 다르게 쪼개져
-있어서** 겉보기엔 다른 문제처럼 보인다:
-
-| | 펌웨어(`sensor2vehicle`, 기기 자체에 저장) | 소프트웨어 보정 | 최종 결과 |
-|---|---|---|---|
-| 3호차 | `roll180+yaw180` (누군가 이미 걸어둠) | `ekf_pose`: `imu_axis_yaw180=true` | 정상 |
-| 4호차 | `identity`(아무 보정 없음) | `pacejka_sysid`: `imu_rotation_roll=180`(기본값) | 정상 |
-
-**둘 다 지금 상태로는 정상 동작 중.** 위험한 건 "하나로 통일"이라며 소프트웨어 값만
-git으로 push/pull 하는 것 — 펌웨어는 git이 손 못 대는 영역이라, 그렇게 하면 둘 중
-한 대는 반드시 깨진다. 상세 이유는 §3.
-
-**4호차는 절대 건드리지 않았음.** 딥러닝 동역학 모델이 4호차에서 학습됐고,
-`pacejka_sysid`의 기본값(`imu_rotation_roll=180`)이 처음부터 4호차의 실제 상태와
-맞아떨어지는 것으로 확인됐다(§2.2) — 즉 **기존 학습은 안전한 것으로 보임**, 단 학습
-당시 이 값이 정말 기본값 그대로였는지는 git 로그로 재확인 필요(§4).
-
----
-
-## 0.5. 2026-08-15 — 통일 진행됨, 다만 **검증 필요**
-
-3·4호차 모두 **펌웨어 보정을 제거(identity)하고 ROS 단에서 yaw180 만 적용**하는
-방향으로 통일했다는 보고. 레이어를 하나로 모은 것 자체는 §3 의 문제(git 이 못 옮기는
-값에 설정이 갈리는 것)를 없애므로 옳은 방향이다.
-
-**그런데 §2.2 실측과 맞지 않는 부분이 있어 확인이 필요하다.**
-
-4호차를 펌웨어 identity 상태에서 실측했을 때 나온 값은:
-
-| | 실측 |
-|---|---|
-| 정지 시 `a_z` | **-9.80** (뒤집힘) |
-| 자이로 z | 반전 |
-| `a_y` | 반전 |
-| `a_x` | 정상 |
-
-이걸 바로잡는 회전은 **x 축 기준 180도(roll180)** 다: `(x, y, z) -> (x, -y, -z)`.
-**yaw180 은 z 축 기준 회전이라 `a_z` 와 자이로 z 를 바꾸지 못한다** — 기하학적으로
-그렇다. 즉 펌웨어를 identity 로 두고 yaw180 만 걸면 `a_z = -9.8`, 자이로 z 반전이
-그대로 남는다.
-
-### 가장 빠른 확인 — `/odom` 에 의존하지 않는 단일 지표
-
-정지 상태에서 `a_z` 하나만 보면 된다. 이건 중력이 기준이라 조향/오도메트리 캘리와
-무관하게 결정적이다.
+3호차의 IMU 축을 펌웨어 identity + ROS 드라이버 보정으로 정상화한 작업 기록이다.
+2026-08-17에 4호차에서도 아래 alias로 `f1tenth_imu_xy_corrected.yml`을 지정해
+드라이버를 실행했다. 이후 15:28 KST에 4호차에서 `imu_frame_test`를 수행해
+`/imu/data`의 세 축 부호가 정상임을 확인했다. 따라서 이전의 **“4호차 미변경”**
+기록은 더 이상 현재 상태를 나타내지 않는다.
 
 ```bash
-ros2 topic echo /imu/data --field linear_acceleration --once --qos-reliability best_effort
+alias imu='sudo chmod 777 /dev/tty* && cd ~/f1tenth_ws/ && source install/setup.bash && ros2 launch microstrain_inertial_driver microstrain_launch.py params_file:=/home/a/f1tenth_ws/src/driver/new_imu/microstrain_inertial_driver/config/f1tenth_imu_xy_corrected.yml'
 ```
 
-- `a_z ≈ +9.8` → z 축 정상. 통일이 의도대로 됐다는 뜻
-- `a_z ≈ -9.8` → **yaw180 으로는 못 고치는 상태.** roll180 이 필요하다
+관련 문서: `ekf-pose-analysis-2026-08.md`, `handoff-control-2026-08-04.md`.
 
-### 소비자별로 영향이 다르다
+## 0. 현재 상태
 
-레이어를 하나로 모았어도 **각 소비자가 적용하는 보정의 형태가 서로 다르다**:
-
-| 소비자 | 보정 수단 | 무엇을 바꾸나 | roll180 을 표현할 수 있나 |
+| 차량 | 펌웨어 `sensor2vehicle` | ROS 드라이버 보정 | 검증 상태 |
 |---|---|---|---|
-| `als_ros/mcl` | `imu_rotation_roll/pitch/yaw` | 자이로 벡터 전체를 RPY 회전 후 z 사용 (`vehicleYawRate`) | **가능** |
-| `pacejka_sysid` | `imu_rotation_roll/pitch/yaw` | 가속도·자이로 전체 회전 | **가능** |
-| `ekf_pose` | `imu_axis_yaw180` | **`ax`, `ay` 부호만** 뒤집음 | **불가** — `az`·자이로 안 건드림 |
+| 3호차 | Euler `[0, 0, 0]` identity, NVM 저장 | `imu_data_roll180: true` | 2026-08-15 실차 `imu_frame_test` 통과 |
+| 4호차 | identity `[0,0,0]`을 다시 쓰도록 요청됨. `save_settings: true`이므로 launch가 정상 완료됐다면 NVM에도 저장됨 | `imu_data_roll180: true` 적용. `pacejka_sysid` runtime parameter도 `imu_rotation_roll=0.0` 확인 | **2026-08-17 실차 `imu_frame_test` 및 좌/우회전 부호 검사 통과**. NVM save 성공 여부만 시작 로그로 추후 확인 |
 
-> `als_ros/mcl` 의 `imu_rotation_*` 는 예전에 "선언만 되고 미사용"이었으나
-> precompetition 브랜치에서 `vehicleYawRate()` 가 실제로 적용하도록 바뀌었다.
-> 현재 기본값은 `mcl.launch.py` 의 `imu_rotation_roll:=0.0` 이다.
+3호차의 현재 `/imu/data`는 차체 FLU 기준이다. 따라서 앞으로 3호차에서
+`ekf_pose`를 실행할 때 `imu_axis_yaw180`은 `false`여야 한다. 4호차도 위
+driver가 실행 중인 동안에는 같은 publisher-side roll180이 적용되므로, 출력의
+`a_y`, `a_z`, `gyro_z`는 보정 전 값과 부호가 반대가 된다. 4호차도 아래 실차
+검사로 정상 FLU임을 확인했다.
 
-따라서 **만약 `a_z = -9.8` 이 남아 있다면** 최소한 다음이 필요하다:
+```text
+정지 a_z: +9.78 m/s²
+자이로 z: 기울기 +0.85, 상관 +0.90
+횡가속 a_y: 기울기 +1.04, 상관 +0.96
+종가속 a_x: 기울기 +0.70, 상관 +0.70
+```
 
-1. `mcl.launch.py` 의 `imu_rotation_roll` 기본값을 `180.0` 으로 (자이로 z 부호 교정).
-   MCL 은 yaw 적분에 이 값을 쓰므로 부호가 틀리면 위치추정이 바로 무너진다 —
-   즉 **차가 정상 주행했다면 이미 맞게 들어가 있을 가능성이 높다. 실제 launch
-   인자를 확인할 것.**
-2. `ekf_pose` 에 roll 보정 옵션 추가 (§4-B 에 이미 적어둔 항목). 현재
-   `imu_axis_yaw180` 만으로는 표현이 안 된다.
+위 값은 `/odom` 기준 40초 8자 주행에서 얻었다. 세 축 모두 부호가 정상이다.
 
-### 검증 절차
+### 0.1 4호차 실차 검사 결과 (2026-08-17 15:28 KST)
 
-두 차 모두에서:
+`python3 src/ekf_pose/scripts/imu_frame_test.py`로 `/imu/data`와 `/odom`을 40초간
+수집했다. IMU 4,001개, odom 1,692개 중 주행 표본 3,043개가 사용됐다.
+
+```text
+정지 a_z: +9.79 m/s²
+자이로 z: 기울기 +0.41, 상관 +0.74 — 정상(부호는 맞음, 크기는 어긋남)
+횡가속 a_y: 기울기 +0.77, 상관 +0.81 — 정상
+종가속 a_x: 기울기 +0.45, 상관 +0.58 — 정상(부호는 맞음, 크기는 어긋남)
+판정: 반전된 축 없음
+```
+
+따라서 4호차 live 경로에서도 `ekf_pose.imu_axis_yaw180: false`와 차체 FLU를
+전제로 한 Coriolis 부호(`vx += ax + vy·yaw_rate`, `vy += ay - vx·yaw_rate`)를
+그대로 사용한다. 기울기는 `/odom` 기반 크기 비교이므로, 이 결과는 축 **부호**
+판정이지 IMU/odom gain 보정 근거는 아니다.
+
+### 0.2 SysID runtime 및 좌/우회전 최종 확인 (2026-08-17)
+
+재빌드·재시작한 `pacejka_sysid`에서 다음을 확인했다.
+
+```text
+ros2 param get /pacejka_sysid imu_rotation_roll
+Double value is: 0.0
+```
+
+그 상태로 직접 `/imu/data`를 확인한 결과, 전진 좌회전에서는
+`angular_velocity.z > 0` 및 `linear_acceleration.y > 0`, 전진 우회전에서는 두 값이
+모두 `< 0`였다. 따라서 SysID가 사용하는 `ω`, `a_y` 입력은 FLU 부호와 일치하며,
+추가 roll180 보정은 적용하지 않는다.
+
+## 1. 3호차에서 수행한 변경
+
+### 1.1 펌웨어 설정을 identity로 통일
+
+기존 3호차는 `filter_sensor2vehicle_frame_transformation_euler=[π,0,π]`가
+설정된 상태였다. 이를 다음 차량 전용 YAML로 `[0,0,0]`으로 설정하고,
+`save_settings: true`로 장치 NVM에 저장했다.
+
+- `src/driver/new_imu/microstrain_inertial_driver/config/f1tenth_car3_imu_xy_corrected.yml`
+
+```yaml
+filter_sensor2vehicle_frame_selector: 1
+filter_sensor2vehicle_frame_transformation_euler: [0.0, 0.0, 0.0]
+save_settings: true
+```
+
+실행 중에는 다음으로 확인한다.
 
 ```bash
-ros2 run ekf_pose imu_frame_test          # 주행 30~40초, 좌우 코너 섞어서
+ros2 param get /microstrain_inertial_driver \
+  filter_sensor2vehicle_frame_transformation_euler
+# Double values are: array('d', [0.0, 0.0, 0.0])
 ```
 
-세 축이 모두 "정상"으로 나와야 통일 완료다. 출력에서 특히 볼 것:
+### 1.2 ROS publish 경계에서 roll 180° 보정
 
-- `정지 시 a_z` — `+9.8` 인가
-- `자이로 z` — 정상인가 (반전이면 MCL yaw 적분이 거꾸로 간다)
+Microstrain의 `/imu/data`는 센서 DeltaTheta/DeltaVelocity를 드라이버가 직접
+publish하므로, `filter_sensor2vehicle`만 바꿔서는 원하는 `/imu/data` 축 보정을
+보장하지 못한다. 따라서 `new_imu` 드라이버에 publisher-side 보정 파라미터를 추가했다.
 
-> ⚠ 자이로 판정은 기준 신호로 `/odom` 의 `angular.z` 를 쓰는데, 그 값 자체가
-> `vesc_to_odom` 이 조향 명령에서 재구성한 것이다(`use_servo_cmd_to_calc_angular_velocity:
-> true`, 게인은 음수). 조향 부호 규약이 어긋나 있으면 **기준이 흔들려 자이로 판정이
-> 뒤집힐 수 있다.** 반면 `a_z` 는 중력 기준이라 이 영향을 안 받으므로, 둘이 엇갈리면
-> `a_z` 를 믿을 것.
+3호차 YAML은 다음만 활성화한다.
 
-## 1. 증상 — 왜 이 조사를 시작했나
+```yaml
+imu_data_roll180: true
+```
 
-- ekf_pose 개발 중 IMU 가속도 x,y가 차체 기준으로 반전돼 있다는 걸 0730 bag(3호차
-  녹화)으로 발견 (`ekf-pose-analysis-2026-08.md` §2). `imu_axis_yaw180: true`로
-  소프트웨어 보정.
-- 팀원이 "IMU 마운트는 화살표대로 정상 장착했다, odom 가이스도 그렇고 여러 번 이
-  문제를 겪었다"고 함 — 물리적 역장착 가설과 배치.
-- 3호차 젯슨에서 직접 확인: `filter_sensor2vehicle_frame_selector=1`,
-  `filter_sensor2vehicle_frame_transformation_euler=[π,0,π]`(roll180+yaw180) —
-  **펌웨어에 이미 비-identity 값이 박혀 있었음.** 즉 물리적 장착 문제가 아니라
-  드라이버/펌웨어 설정 문제로 원인 정정.
-- 4호차는 딥러닝 동역학 모델 학습에 계속 쓰이고 있어서, **레포를 pull 받으면
-  4호차의 학습 전제가 깨질 수 있다**는 우려가 제기됨 → 4호차를 실측 없이 건드리지
-  않기로 하고, 4호차에서 직접 검증하기로 함.
+이는 일반 ENU 변환 뒤에 적용되는 `Rx(π)` 보정이다. x는 유지하고 y/z를 반전하며,
+가속도·자이로·자력계와 `/imu/data` orientation에 같은 보정을 적용한다.
 
-## 2. 분석
+- 구현: `microstrain_inertial_driver_common/src/publishers.cpp`
+- 파라미터 읽기: `microstrain_inertial_driver_common/src/config.cpp`
+- 기본값: `microstrain_inertial_driver_common/config/params.yml`
 
-### 2.1 검사 방법 — 손으로 기울이는 정지 테스트는 안 됨
+처음에는 `Rz(π)` (`imu_data_yaw180`)를 시도했지만, identity 펌웨어 상태에서
+`imu_frame_test`가 `a_x`, `gyro_z` 반전 / `a_y` 정상으로 판정했다. 이를 근거로
+최종 보정은 `Rx(π)`로 확정했다. `imu_data_yaw180`은 기본값 `false`이므로 3호차
+YAML에 명시하지 않는다.
 
-정지 상태에서 기울이면 중력축(z)만 검증된다. 센서가 yaw로 90/180도 돌아 있어도
-기울임 반응은 똑같이 그럴듯하게 나와서 "앞"이 어느 쪽인지 구분이 안 된다.
-그래서 **주행 데이터**로 판정하는 스크립트를 만듦: `src/ekf_pose/scripts/imu_frame_test.py`
-(`ros2 run ekf_pose imu_frame_test`, mocap 불필요 — 기준 신호로 `/odom`의 부호만 씀).
+### 1.3 EKF의 과거 보정 해제
 
-검사 순서(뒤 단계가 앞 단계에 의존):
-1. 자이로 z ↔ `/odom` angular.z 부호 비교
-2. 횡가속 a_y ↔ 정상선회 항등식 `a_y = v_x·ω` (1의 자이로 사용)
-3. 종가속 a_x ↔ `d(v_odom)/dt`
+과거 3호차 bag은 `a_x/a_y`가 반전돼 있어 EKF 내부에서 yaw180 보정을 사용했다.
+현재 드라이버 출력은 이미 정상 FLU이므로 다음을 `false`로 변경했다.
 
-### 2.2 3호차 vs 4호차 실측 결과
+- `src/ekf_pose/config/ekf_pose.yaml`
 
-| 축 | 3호차 (0730 bag, mocap GT 기준) | 4호차 (오늘 라이브, 트랙 주행 40s, `/odom` 기준) |
+```yaml
+imu_axis_yaw180: false
+```
+
+이 값은 EKF 내부에서만 `a_x/a_y` 부호를 바꾸며, `ekf_pose`를 실행하지 않을 때
+`/imu/data`에는 영향을 주지 않는다.
+
+## 2. 3호차 실행 방법
+
+기존 `imu` alias는 인자 없이 실행하면 기본
+`f1tenth_upside_down.yml`을 사용한다. 그 파일에는 예전 `[π,0,π]` 값이 있으므로,
+**3호차에서는 반드시 아래 차량 전용 YAML을 명시한다.**
+
+```bash
+imu params_file:=/home/a/f1tenth_ws/src/driver/new_imu/microstrain_inertial_driver/config/f1tenth_car3_imu_xy_corrected.yml
+```
+
+`params_file:=...` 앞에 같은 줄의 `\`를 넣지 않는다. 줄을 나눌 때만 백슬래시를
+줄 끝에 둔다.
+
+```bash
+ros2 launch microstrain_inertial_driver microstrain_launch.py \
+  params_file:=/home/a/f1tenth_ws/src/driver/new_imu/microstrain_inertial_driver/config/f1tenth_car3_imu_xy_corrected.yml
+```
+
+정상 시작 로그에는 다음이 포함돼야 한다.
+
+```text
+Setting sensor to vehicle transformation euler to [0.000000, 0.000000, 0.000000]
+Saving the launch file configuration settings to the device
+```
+
+### 2.1 `f1tenth_imu_xy_corrected.yml`은 범용 설정이 아니다
+
+2026-08-17에 4호차에서 명시한
+`f1tenth_imu_xy_corrected.yml`은 이름과 달리 3호차 파일
+`f1tenth_car3_imu_xy_corrected.yml`과 사실상 같은 설정이다. 두 파일의 차이는
+`port`뿐이다.
+
+| 항목 | `f1tenth_imu_xy_corrected.yml` | `f1tenth_car3_imu_xy_corrected.yml` |
 |---|---|---|
-| 정지 시 a_z | **+9.76** (정상, REP-103) | **-9.80** (뒤집힘) |
-| 자이로 z | 정상 (기울기 +0.85~0.95, corr +0.95) | **반전** (기울기 -0.77, corr -0.85) |
-| a_y | **반전** (기울기 -0.97~-1.11) | **반전**★ (아래 참고) |
-| a_x | **반전** (기울기 -1.18~-1.27) | 정상 (기울기 +0.39, corr +0.42 — 약하지만 양수) |
+| 포트 | `/dev/microstrain_imu` | `/dev/ttyACM1` |
+| `sensor2vehicle` | Euler `[0,0,0]` | Euler `[0,0,0]` |
+| NVM 저장 | `save_settings: true` | `save_settings: true` |
+| ROS 출력 보정 | `imu_data_roll180: true` | `imu_data_roll180: true` |
 
-★ 4호차 a_y는 스크립트가 "판정보류"로 찍었는데(게이트 로직이 "자이로 정상일 때만
-판정"하게 짜여 있어서), 손으로 풀면 반전으로 나옴 — 자이로도 반전, a_y도 반전이면
-`regress(v·ω_측정값, a_y)`가 **양의 상관(+0.97)**으로 나오는 게 정상이고 실제로
-그렇게 나왔음(두 반전이 상쇄돼 겉보기엔 "정상 상관"처럼 보이는 함정 — 스크립트
-로직에 남은 약점, §5 TODO).
+즉 4호차에서 symlink가 실제 IMU를 가리킨 상태로 이 파일을 실행하면 다음 두 효과가
+발생한다.
 
-**패턴 판정**:
-- 3호차: x,y 반전 / z,자이로z 정상 → **yaw180** 패턴 (z축 기준 회전)
-- 4호차: y,z,자이로z 반전 / x 정상 → **roll180** 패턴 (x축 기준 회전)
+1. 실행 중 `/imu/data`, `/imu/data_raw`, `/imu/mag`의 벡터와 orientation에 `Rx(π)`가
+   적용된다. `(x,y,z) → (x,-y,-z)`이므로 `a_y`, `a_z`, `gyro_z`가 이전 raw 출력과
+   반전된다.
+2. 드라이버는 sensor2vehicle을 identity로 설정한 뒤, `save_settings: true`이면
+   `configureBase`/`configure3DM`/`configureGNSS`/`configureFilter` 뒤의 장치 설정을
+   NVM에 저장한다. 설정 파일의 일부 키만 저장하는 동작이 아니다.
 
-### 2.3 두 패턴이 사실 같은 것이었다 — 레이어 합성
+`params_file`은 절대 경로로 전달되므로, `source install/setup.bash` 후에도 이 source
+트리의 YAML 내용이 그대로 사용된다. 단, 현재 `install/.../config`에는 이 범용 파일이
+없으므로 해당 절대 경로를 생략하거나 다른 alias로 실행하면 동일한 결과를 기대할 수 없다.
 
-3호차는 펌웨어에 이미 `roll180+yaw180`이 걸려 있는 채로 위 결과가 나온 것.
-즉 raw(펌웨어 적용 전) 센서 신호에 "펌웨어(roll180+yaw180)"를 적용하고, 그 결과에
-다시 "소프트웨어(yaw180)"를 적용해서 지금의 정상 출력이 나온다. 이 두 단계를
-합성해보면:
+또한 alias의 `sudo chmod 777 /dev/tty*`는 모든 tty 장치의 권한을 넓히며 축 보정과는
+무관하다. 이 저장소의 제공 udev rule은 MicroStrain 장치에 `MODE="0666"`과
+`/dev/microstrain_main` 등의 symlink를 부여한다. 4호차의 `/dev/microstrain_imu`가
+별도 rule이라면 그 rule을 확인·수정해 필요한 IMU 장치에만 권한을 주고, 광범위한
+`chmod`는 alias에서 제거한다.
 
-```
-raw (a, b, c)
-  → 펌웨어 roll180+yaw180  →  (-a, b, -c)
-  → 소프트웨어 yaw180       →  ( a, -b, -c)
+## 3. 검증 절차
 
-4호차에 필요한 걸 raw에 직접 roll180만 적용 → (a, -b, -c)   ← 동일!
-```
-
-**3호차·4호차 모두 raw 센서 다이(die) 기준으로는 똑같이 roll180이 필요한
-상태였다.** 하드웨어는 실제로 동일 — 차이는 "누가 언제 어느 레이어에 뭘
-넣었는지"의 흔적일 뿐(3호차 펌웨어의 `roll180+yaw180`은 과거 누군가의 트러블슈팅
-흔적으로 추정, 정확한 경위는 미상).
-
-> 주의: 이 합성 계산은 오일러각 컨벤션(Rz·Ry·Rx 가정)에 의존하고, MIP 펌웨어의
-> 정확한 내부 컨벤션은 검증 못 했다(제조사 비공개). 다만 이번 계산에 쓰인 각도가
-> 전부 180°라 부호 관례(드라이버가 파라미터 값에 음수를 붙여 전송하는 것 포함)에
-> 영향을 안 받는 특수 케이스라 신뢰도는 높다 — 그래도 **펌웨어 값을 실제로 바꿀
-> 때는 반드시 `imu_frame_test.py`로 재검증**(§4).
-
-## 3. 왜 "4호차 기준 push → 3호차 pull"이 안 되나
-
-git으로 옮길 수 있는 건 `ekf_pose.yaml`/`sysid_node.yaml`의 **소프트웨어 보정값
-뿐**이다. **펌웨어의 `sensor2vehicle` 값은 센서 디바이스 자체(비휘발성 메모리)에
-저장**돼 있어 git이 아예 접근 못 한다. 지금 두 차의 펌웨어가 이미 다른 상태(위 표)
-라서, 소프트웨어 값만 하나로 밀어넣으면 펌웨어가 다른 쪽 차는 반드시 깨진다.
-
-## 4. 남은 작업 (3호차에서 이어갈 것)
-
-### A. 근본적으로 통일 (펌웨어 정리, 권장하지만 신중히)
-
-3호차 펌웨어를 `roll180+yaw180`에서 **`roll180` 하나만** 남기도록 재기록하고,
-소프트웨어 보정(`ekf_pose`의 `imu_axis_yaw180`)은 끈다.
+펌웨어·드라이버·장착 상태를 바꾼 뒤에는 정지 기울임만으로 판정하지 않는다.
+반드시 실제 주행 데이터로 확인한다.
 
 ```bash
-# 1. 현재값 재확인 (변경 전 기록해둘 것)
-ros2 param get /microstrain_inertial_driver filter_sensor2vehicle_frame_transformation_euler
-
-# 2. roll180만 남기도록 launch/param 변경 (예: euler를 [π, 0, 0]으로)
-#    -- 정확한 파라미터 경로는 실제 3호차 IMU launch 커맨드를 먼저 찾아서 확인할 것
-#    (지난 조사에서 f1tenth_stack의 bringup_launch.py는 IMU 노드가 주석처리돼
-#     있었음 — 실제 launch가 어디서 되는지부터 재확인 필요)
-
-# 3. 반드시 재검증
 ros2 run ekf_pose imu_frame_test
-#   -> a_z ≈ +9.8, 자이로z/a_x/a_y 전부 "정상"이 나와야 함
-
-# 4. 확인되면 ekf_pose.yaml 의 imu_axis_yaw180 을 false 로
 ```
 
-⚠ **4호차는 이 단계에서 안 건드림.** 4호차는 이미 (펌웨어 identity + 소프트웨어
-roll180으로) 정상 상태.
+8자 또는 좌/우 코너를 섞어 40초 이상 주행한다. 출발 가속과 제동도 여러 번 넣어야
+종가속 `a_x` 부호를 판단할 수 있다. 통과 조건은 다음이다.
 
-### B. 저위험 대안 — 소프트웨어만 차량별로 분리 (펌웨어 안 건드림)
+```text
+정지 a_z ≈ +9.8
+자이로 z: 정상
+횡가속 a_y: 정상
+종가속 a_x: 정상
+```
 
-A안이 부담스러우면, `ekf_pose`/`pacejka_sysid`의 보정 파라미터를 **차량별
-launch argument**로 쪼개는 것만으로도 충분하다 — `base_link→laser` 정적 TF가
-이미 차마다/bag마다 값이 달라서 같은 방식으로 분리해야 했던 전례가 있음
-(`docs/localization-version-comparison.md`, `docs/mocap-calibration-analysis-2026-08.md`
-와 같은 "차량별 물리 캘리브레이션은 공유 X, 분리 필요" 패턴의 연장선).
+## 4. downstream 소비자 주의
 
-이 경우 `ekf_pose`에 지금 없는 **roll180 보정 옵션을 추가**해야 함(현재는
-`imu_axis_yaw180`만 있고 롤 보정은 없음) — 4호차에서 `ekf_pose`를 쓸 일이 생기면
-필요.
+현재 3호차 `/imu/data`는 이미 정상 FLU이다. 따라서 downstream에서 이전 부호 보정을
+다시 적용하면 이중 반전된다.
 
-### C. 검증 필요 (둘 중 어느 안을 택하든)
+- `ekf_pose`: `imu_axis_yaw180: false` 적용 완료.
+- `pacejka_sysid`: driver가 보정한 live `/imu/data`를 다시 뒤집지 않도록
+  `imu_rotation_roll`의 노드 기본값과 `sysid_node.yaml`을 모두 `0.0`으로 변경했다
+  (commit `1b68ebb`). 이미 실행 중인 SysID node는 재시작해야 새 값이 적용된다.
+- `smppi_cuda_controller`: MPPI 수신 경계의 `imu_wz_sign`, `imu_ax_sign`,
+  `imu_ay_sign`을 모두 `+1`로 변경했다. 따라서 MPPI 상태/KF/학습 모델은
+  3호차 `/imu/data`와 같은 FLU를 사용한다.
+- `als_ros` MCL: 가속도는 MCL 모션 모델에서 사용하지 않고, 수신 IMU의 차량
+  yaw-rate만 적분한다. `imu_rotation_*`으로 장착 회전을 적용한 뒤
+  `imu_wz_sign`을 적용하도록 만들었으며, 3호차 라이브 기본값은 `+1`이다.
+  `mcl.launch.py`의 `imu_rotation_roll` 기본값도 `0.0`이므로 이중 반전이 없다.
 
-- [ ] 4호차 딥러닝 학습 시 `pacejka_sysid/params/sysid_node.yaml`의
-      `imu_rotation_roll`이 계속 기본값(180)이었는지 git 로그로 확인:
-      `git log -p --follow -- src/control/pacejka_sysid/params/sysid_node.yaml | grep -A2 imu_rotation_roll`
-      — 180이 아닌 값으로 돌린 이력이 있으면 그 구간 학습 데이터는 재검토 필요.
-- [ ] `imu_frame_test.py`의 a_y 판정 게이트 로직 보완 — 자이로·a_y가 동시에
-      반전되면 "정상 상관"처럼 보여 판정보류로 새는 케이스(§2.2 참고)를 자동
-      판별하도록 개선.
-- [ ] 3호차 실제 IMU launch 커맨드가 어디 있는지 재확인 — `f1tenth_stack`의
-      `bringup_launch.py`엔 IMU 노드가 주석처리돼 있어서, 실제로 어떤 launch/
-      param 파일이 쓰이는지가 이 repo 어디에도 안 남아있음. A안 진행 전 필수.
+## 5. 4호차 실행 기록, 영향 및 즉시 확인 사항
 
-## 5. 참고 — 같은 세션에서 발견된 관련 이슈 (별개, 우선순위 낮음)
+4호차에서 사용한 alias는 3호차와 동등한 보정 YAML을 명시했으므로, 더는 “4호차를
+변경하지 않았다”고 볼 수 없다. 2026-08-17 `imu_frame_test`는 세 축 부호가 정상인
+FLU 출력임을 확인했다. 다만 driver 시작 로그를 확보하지 못했으므로 NVM 저장 성공만은
+확정할 수 없다.
 
-`base_link→laser` 정적 TF도 워크스페이스/bag마다 다른 값(`0.27/0/0.11` vs
-`0.11/0/0`)을 쓰고 있는 게 확인됨 — IMU와 같은 "차량별 물리값이 공유 설정에
-하드코딩돼 있다"는 근본 패턴. `eval/localization-bag-replay/`의 replay 하니스는 bag의
-`/tf_static`을 재생하도록 이미 고쳐뒀지만, **실제 launch 파일들(`bag_mcl.launch.py`
-등)의 하드코딩은 아직 안 고침** — IMU 작업과 함께 정리하면 좋음.
+가장 큰 호환성 위험이었던 `pacejka_sysid`의 이중 보정은 commit `1b68ebb`에서
+해제했다. node 기본값과 YAML 모두 `imu_rotation_roll: 0.0`이다. 새 driver가
+`imu_data_roll180: true`로 이미 `(x,-y,-z)` 보정한 `/imu/data`에 roll180을 다시
+적용하면 `a_y`, `a_z`, `gyro_z`가 driver 보정 전 부호로 되돌아가므로, 현재 live
+3·4호차에서는 `0.0`을 유지한다. raw/z-down IMU 또는 과거 bag을 쓸 때만 실차 축
+검증 후 `180.0`을 명시적으로 override한다.
 
-## 6. 도구 위치
+MCL live launch의 `imu_rotation_roll` 기본값은 이미 `0.0`이다. 새 driver 출력이
+정상 FLU라면 이 값은 맞지만, 4호차의 실제 축이 3호차와 다르면 역시 검증이 필요하다.
 
-- `src/ekf_pose/scripts/imu_frame_test.py` — 차 위에서 직접 실행, mocap 불필요
-  (`ros2 run ekf_pose imu_frame_test`)
-- `src/ekf_pose/docs/ekf-pose-analysis-2026-08.md` §2, §2.5, §3 — 3호차 원본 분석
-- `src/ekf_pose/docs/handoff-control-2026-08-04.md` — control 팀 핸드오프 요약
+다음 순서로 확인한다.
+
+```bash
+# 1) driver 시작 직후: NVM save 및 현재 ROS 파라미터 확인
+ros2 param get /microstrain_inertial_driver \
+  filter_sensor2vehicle_frame_transformation_euler
+ros2 param get /microstrain_inertial_driver imu_data_roll180
+
+# 2) 실행 로그에 아래 두 줄이 있었는지 확인
+# Setting sensor to vehicle transformation euler to [0.000000, 0.000000, 0.000000]
+# Saving the launch file configuration settings to the device
+
+# 3) 4호차 실차에서 축 부호 확인
+ros2 run ekf_pose imu_frame_test
+```
+
+4호차 검사는 위 조건을 만족해 통과했으며, SysID 재시작 뒤
+`imu_rotation_roll=0.0`과 좌/우회전 `ω`·`a_y` 부호까지 확인했다.
+
+```bash
+git log -p --follow -- src/control/pacejka_sysid/params/sysid_node.yaml | \
+  grep -A2 imu_rotation_roll
+```
+
+## 6. 남은 작업
+
+- [ ] 3호차 SMPPI/MCL IMU 부호 변경 후 저속 실차에서 MPPI yaw 추종 및 MCL pose를 검증.
+- [ ] 3호차 IMU 실행 alias 또는 bringup launch에 차량별 `params_file`을 고정해,
+      인자 없는 `imu` 실행으로 예전 기본 YAML이 적용되는 실수를 방지.
+- [ ] 4호차에서 2026-08-17 launch의 시작 로그를 확보해 NVM 저장 성공 여부를 확인.
+- [x] 4호차 `imu_frame_test`를 새 YAML 활성 상태에서 수행 — 2026-08-17 세 축 부호 통과.
+- [x] 3·4호차 live SysID 이중 roll 보정 해제 — node 기본값/YAML `0.0`, commit `1b68ebb`.
+- [x] SysID node 재시작 후 live parameter `imu_rotation_roll=0.0` 및 좌/우회전
+      `ω`·`a_y` 부호 확인 — 좌회전 둘 다 양수, 우회전 둘 다 음수.
+- [ ] 차량별 파일명을 명확히 분리하고, `f1tenth_imu_xy_corrected.yml`처럼 범용으로
+      보이는 3호차 설정은 제거 또는 안전한 `save_settings: false` 기본 파일로 교체.
