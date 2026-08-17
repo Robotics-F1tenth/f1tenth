@@ -34,6 +34,18 @@ install(DIRECTORY launch params
 install(DIRECTORY config docs patches
   DESTINATION share/${PROJECT_NAME})
 
+# 전 궤적 표본 기록 + 여러 차량 공유 적합. T_map_mocap 을 차량별로 따로 풀면
+# 두 차가 서로 다른 맵 프레임에 살게 된다(실측 13 cm). docs/mocap-calibration-analysis-2026-08.md
+install(PROGRAMS
+  calibration_record.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME calibration_record)
+
+install(PROGRAMS
+  calibration_solve_joint.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME calibration_solve_joint)
+
 install(PROGRAMS
   calibration_v2.py
   DESTINATION lib/${PROJECT_NAME}

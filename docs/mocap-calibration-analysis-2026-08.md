@@ -196,6 +196,40 @@ params = [a, tx, ty,          # 공유 (두 차 샘플 전부가 함께 구속)
 - 각 차가 ego(MCL 구동) 역할일 때의 세션이 하나씩 필요 — 지금 절차와 동일, 다만
   **두 세션 데이터를 합쳐서 한 번에 푸는 것**이 핵심
 
+#### 구현됨 (2026-08-15)
+
+`calibration_v2.py` 를 고치는 대신, 표본 기록과 적합을 분리한 도구 두 개를 추가했다.
+기존 스크립트는 그대로 두고(호환), 새 캘리는 이 경로를 쓴다.
+
+```bash
+# 1) 각 차량이 ego(MCL 구동) 일 때 한 번씩, 트랙을 돌면서 전 궤적 표본을 기록
+ros2 run mocap_localization calibration_record --ros-args \
+    -p mocap_topic:=/mocap_pose3 -p out:=/tmp/car3_samples.csv
+ros2 run mocap_localization calibration_record --ros-args \
+    -p mocap_topic:=/mocap_pose4 -p out:=/tmp/car4_samples.csv
+
+# 2) 두 표본을 한꺼번에 풀어 두 params 를 동시에 갱신
+ros2 run mocap_localization calibration_solve_joint \
+    car3=/tmp/car3_samples.csv:src/localization/mocap_localization/params/params3.yaml \
+    car4=/tmp/car4_samples.csv:src/localization/mocap_localization/params/params4.yaml
+```
+
+`a, tx, ty` 는 공유 미지수, `b_i, bx_i, by_i` 는 차량별 미지수인 LM 문제를 푼다.
+출력된 두 params 의 `rotation`/`translation` 은 **정의상 동일**하므로 §2 의 13 cm
+어긋남이 재발할 수 없다.
+
+셀프테스트(`calibration_solve_joint.py --selftest`)가 축퇴를 직접 재현한다:
+
+```
+참값 a = -91.000 deg
+표본 많고 넓음: 공유 -90.998 / 독립 [-90.997, -91.0]   -> 둘 다 맞음
+표본 적고 좁음: 공유 -89.609 / 독립 [-91.131, -87.354] -> 독립은 차마다 3.78 deg 갈림
+```
+
+**주의**: 소표본에서는 공유 적합도 참값에서 1.4° 벗어난다. 즉 **공유 적합만으로는
+부족하고 전 궤적 표본이 함께 필요하다** — 공유 적합이 보장하는 것은 "두 차가 같은
+프레임에 산다"이지 "그 프레임이 정확하다"가 아니다.
+
 ### 5-C. 근본 해결 (권장, 하드웨어/절차)
 
 **Motive에서 리지드바디 피벗을 차량 후륜축(base_link)에 맞춰 정의.**
