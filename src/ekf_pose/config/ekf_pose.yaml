@@ -1,4 +1,11 @@
-ekf_pose_node:
+# Wildcard, not a node name: this file was keyed 'ekf_pose_node:' while the node
+# actually calls itself 'ekf_pose_estimator', so ROS silently ignored the whole
+# file and every value below fell back to the declare_parameter() default in
+# ekf_pose_estimator.cpp. Two of those defaults are the opposite of what is
+# wanted here -- imu_axis_yaw180 (true, meant for the old flipped bags) and
+# publish_tf (true, which fights MCL for map->base_link). Keep '/**' so a future
+# node rename cannot re-break this the same way.
+/**:
   ros__parameters:
 
     # ── 출력 설정 ────────────────────────────────────────────
