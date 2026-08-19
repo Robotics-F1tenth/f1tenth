@@ -5,7 +5,7 @@
 # from wall_recovery's. wall_recovery stays off (matches the chosen default).
 M="$(cd "$(dirname "$0")" && pwd)"
 BAGKEY=${1:-}; PFX=${2:-}; CAP=${3:-}
-BAG=$(ls -d /home/a/Downloads/0730/rosbag2_2026_07_30-${BAGKEY} 2>/dev/null)
+BAG=$(ls -d /home/a/Downloads/f1tenth_bag/0730/rosbag2_2026_07_30-${BAGKEY} 2>/dev/null)
 [ -z "$BAG" ] && { echo "bag not found: $BAGKEY"; exit 1; }
 case "$BAGKEY" in
     22_48_25|22_52_38|22_55_09) LANE=map1_path ;;

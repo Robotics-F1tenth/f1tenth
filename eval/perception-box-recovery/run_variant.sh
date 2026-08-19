@@ -10,7 +10,7 @@ if [ -z "$BAGKEY" ] || [ -z "$PFX" ] || [ -z "$RECOVERY" ]; then
     echo "usage: bash run_variant.sh <bag_key> <out_prefix> <true|false>"
     exit 1
 fi
-BAG=$(ls -d /home/a/Downloads/0730/rosbag2_2026_07_30-${BAGKEY} 2>/dev/null)
+BAG=$(ls -d /home/a/Downloads/f1tenth_bag/0730/rosbag2_2026_07_30-${BAGKEY} 2>/dev/null)
 [ -z "$BAG" ] && { echo "bag not found: $BAGKEY"; exit 1; }
 case "$BAGKEY" in
     22_48_25|22_52_38|22_55_09) LANE=map1_path ;;
