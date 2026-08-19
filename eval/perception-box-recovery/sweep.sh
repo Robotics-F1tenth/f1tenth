@@ -1,5 +1,5 @@
 #!/bin/bash
-# sweep.sh <tag> <bag_key> [yaml.path=value ...]
+# sweep.sh <tag> <bag_key> [section.leaf=value ...]
 # Applies yaml overrides, replays, restores the yaml, and prints one summary line.
 # csv_path is forced to match the bag (production yaml points at the new track).
 M="$(cd "$(dirname "$0")" && pwd)"
@@ -12,16 +12,67 @@ case "$BAGKEY" in
     *)                          LANE=map7_path ;;
 esac
 
+# ponytail: localization bag replays share this machine's CPU. Timing-sensitive
+# MCL measurements (cycle time etc) get skewed by a concurrent perception replay
+# even on a different ROS_DOMAIN_ID -- that's contention, not DDS crosstalk, so
+# domain separation doesn't fix it. Wait instead of racing them.
+localization_running() {
+    pgrep -f "mcl --ros-args" > /dev/null ||
+    pgrep -f "mcl_node" > /dev/null ||
+    pgrep -f "bag_mcl" > /dev/null
+}
+while localization_running; do
+    echo "waiting: localization mcl process is running, not stealing CPU from it..." >&2
+    sleep 15
+done
+
 BK=$(mktemp); cp "$Y" "$BK"
 restore() { cp "$BK" "$Y"; rm -f "$BK"; }
 trap restore EXIT
 
 sed -i "s|^      csv_path: .*|      csv_path: \"$LANE\"|" "$Y"
 for kv in "$@"; do
-    key="${kv%%=*}"; val="${kv#*=}"
-    # last path element is the yaml key; match it at any indent
-    leaf="${key##*.}"
-    sed -i "0,/^\( *\)${leaf}:.*/s//\1${leaf}: ${val}/" "$Y"
+    keypath="${kv%%=*}"; val="${kv#*=}"
+    # keypath is "section.leaf" (e.g. devide_wall.line_dist) -- matches the leaf
+    # only inside the block opened by "section:", so a leaf name that repeats
+    # under a different section (line_dist under both devide_wall and
+    # concatnate_wall) can't silently hit the wrong one.
+    section="${keypath%.*}"; leaf="${keypath##*.}"
+    python3 - "$Y" "$section" "$leaf" "$val" <<'PYEOF'
+import re, sys
+path, section, leaf, val = sys.argv[1:5]
+lines = open(path).read().split("\n")
+sec_re = re.compile(r"^( *)" + re.escape(section) + r":\s*$")
+leaf_re = re.compile(r"^( *)" + re.escape(leaf) + r":.*$")
+in_section = False
+section_indent = None
+done = False
+for i, line in enumerate(lines):
+    if not in_section:
+        m = sec_re.match(line)
+        if m:
+            in_section = True
+            section_indent = len(m.group(1))
+        continue
+    indent = len(line) - len(line.lstrip(" "))
+    if line.strip() and indent <= section_indent:
+        break  # left the section without finding the leaf
+    m = leaf_re.match(line)
+    if m:
+        rest = line[len(m.group(0)):] if False else ""
+        # preserve trailing comment
+        comment = ""
+        hashpos = line.find("#")
+        if hashpos != -1:
+            comment = "  " + line[hashpos:]
+        lines[i] = f"{m.group(1)}{leaf}: {val}{comment}"
+        done = True
+        break
+if not done:
+    sys.exit(f"sweep.sh: {section}.{leaf} not found in {path}")
+open(path, "w").write("\n".join(lines))
+PYEOF
+    [ $? -ne 0 ] && { restore; exit 1; }
 done
 # yaml edits reach the node through the symlinked install share dir; no rebuild needed
 
