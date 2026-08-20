@@ -99,7 +99,14 @@ def main():
 
     G = mc[opp_topic]
     ts = np.array([a[0] for a in arr])
-    inb = (ts >= max(G[0, 0], ego[0, 0])) & (ts <= min(G[-1, 0], ego[-1, 0]))
+    # Clip to where BOTH mocap tracks and the ego pose actually have data. np.interp
+    # holds endpoint values outside its range, so an un-clipped window scores against
+    # a frozen GT point -- that turned an 8cm ego error into 83cm in the solo bags.
+    lo = max(G[0, 0], ego[0, 0], mc[ego_topic][0, 0])
+    hi = min(G[-1, 0], ego[-1, 0], mc[ego_topic][-1, 0])
+    inb = (ts >= lo) & (ts <= hi)
+    if inb.mean() < 0.999:
+        print(f"  GT 커버리지 {100*inb.mean():.0f}% -- 그 구간만 채점")
     arr = [a for a, k in zip(arr, inb) if k]
     ts = ts[inb]
     ox, oy, oyaw, ovx, ovy = resample(G, ts)
