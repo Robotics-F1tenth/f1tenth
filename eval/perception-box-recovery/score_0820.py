@@ -14,6 +14,16 @@ import sys, json, numpy as np
 from scipy import ndimage
 
 MATCH = 0.6
+
+# --gt <file>: use hand-clicked ground truth from annotate_bag.py instead of the
+# auto-derived one. The auto GT cannot tell a real obstacle from an unmapped wall
+# segment, so a scored miss is ambiguous; a clicked GT removes that ambiguity.
+GT_FILE = None
+if "--gt" in sys.argv:
+    i = sys.argv.index("--gt")
+    GT_FILE = sys.argv[i + 1]
+    del sys.argv[i:i + 2]
+
 acc = np.load("/tmp/acc.npy"); g = np.load("/tmp/mapg.npy"); E = np.load("/tmp/ego.npy")
 mi = json.load(open("/tmp/mapinfo.json"))
 res, ox, oy = mi["res"], mi["ox"], mi["oy"]
@@ -37,6 +47,12 @@ for i in range(1, n + 1):
     if hits >= 3000 and de <= 2.0 and ext <= 1.3:
         gt.append((X, Y, hits, ext, float(dist_wall[int(ys.mean()), int(xs.mean())]), de))
 gt.sort(key=lambda r: -r[2])
+
+if GT_FILE:
+    import json as _json
+    hand = _json.load(open(GT_FILE))["obstacles"]
+    gt = [(o["x"], o["y"], 0, 0.0, o.get("wall_dist") or 0.0, 0.0) for o in hand]
+    print(f"손으로 찍은 GT 사용: {GT_FILE} ({len(gt)}개)")
 
 def load(tag):
     import re
