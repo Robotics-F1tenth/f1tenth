@@ -5,6 +5,7 @@
 M="$(cd "$(dirname "$0")" && pwd)"
 Y=/home/a/f1tenth/src/perception/config/perception/f1tenth.yaml
 TAG=$1; BAGKEY=$2; shift 2
+SWEEP_ARGS="$*"
 BAG=$(ls -d /home/a/Downloads/f1tenth_bag/0730/rosbag2_2026_07_30-${BAGKEY} 2>/dev/null)
 [ -z "$BAG" ] && { echo "bag not found: $BAGKEY"; exit 1; }
 case "$BAGKEY" in
@@ -83,7 +84,17 @@ pkill -9 -f "[p]erception_node" 2>/dev/null
 pkill -9 -f "[r]os2 bag play" 2>/dev/null
 sleep 1
 
+# wall_recovery_enabled is declared as a launch arg and passed as an explicit
+# parameter override, so it always beats the yaml value -- setting it in the yaml
+# alone silently does nothing. Mirror it onto the launch command line.
+LAUNCH_EXTRA=""
+case " $SWEEP_ARGS " in
+    *"map_free_wall_recovery.enabled=true"*)  LAUNCH_EXTRA="wall_recovery_enabled:=true" ;;
+    *"map_free_wall_recovery.enabled=false"*) LAUNCH_EXTRA="wall_recovery_enabled:=false" ;;
+esac
+
 ros2 launch f1_perception f1_perception.launch.py use_sim_time:=true use_rviz:=false \
+    $LAUNCH_EXTRA \
     > "$M/${TAG}_perception.log" 2>&1 &
 sleep 4
 rm -f "$M/${TAG}_static_obstacles.txt"
