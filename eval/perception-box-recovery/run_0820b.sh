@@ -100,10 +100,12 @@ sleep 4
 rm -f "$M/${TAG}_static_obstacles.txt"
 ros2 topic echo /f1/perception/static_obstacles > "$M/${TAG}_static_obstacles.txt" 2>&1 &
 SPID=$!
+ros2 topic echo /f1/perception/object/obstacles/arr > "$M/${TAG}_arr.txt" 2>&1 &
+APID=$!
 sleep 2
 ros2 bag play "$BAG" --clock 200 > /dev/null 2>&1
 sleep 5
-kill -9 $SPID 2>/dev/null
+kill -9 $SPID $APID 2>/dev/null
 pkill -9 -f "[p]erception_node" 2>/dev/null
 sleep 1
 
