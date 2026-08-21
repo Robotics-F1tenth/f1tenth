@@ -53,6 +53,9 @@ eval/**
 !eval/**/*.sh
 !eval/**/*.yaml
 !eval/**/*.yml
+# Foxglove layouts are configuration, not output -- they define how a measurement
+# is read and are useless to regenerate by hand.
+!eval/**/foxglove_*.json
 !eval/perception-static-landmark-methodology-2026-08-04/gdb_cmds.txt
 pose_to_tf.py
 maps/my_map.pgm

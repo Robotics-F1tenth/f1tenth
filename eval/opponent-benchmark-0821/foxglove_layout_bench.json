@@ -1,0 +1,221 @@
+{
+  "configById": {
+    "Plot!speed": {
+      "paths": [
+        {
+          "value": "/bench/gt/speed.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "GT speed",
+          "color": "#2ca02c",
+          "lineSize": 1.5,
+          "showLine": true
+        },
+        {
+          "value": "/bench/est/speed.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "estimate",
+          "color": "#d62728",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20,
+      "minYValue": 0,
+      "maxYValue": 5,
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Speed \u2014 GT vs estimate"
+    },
+    "Plot!yaw": {
+      "paths": [
+        {
+          "value": "/bench/gt/yaw.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "GT course",
+          "color": "#2ca02c",
+          "lineSize": 1.5,
+          "showLine": true
+        },
+        {
+          "value": "/bench/est/yaw.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "estimate",
+          "color": "#d62728",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20,
+      "minYValue": -190,
+      "maxYValue": 190,
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Yaw \u2014 GT course vs estimate"
+    },
+    "Plot!err": {
+      "paths": [
+        {
+          "value": "/bench/err/position.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "position [m]",
+          "color": "#1f77b4",
+          "lineSize": 1.5,
+          "showLine": true
+        },
+        {
+          "value": "/bench/err/speed.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "speed [m/s]",
+          "color": "#d62728",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20,
+      "minYValue": -3,
+      "maxYValue": 3,
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Error \u2014 position and speed"
+    },
+    "Plot!yawerr": {
+      "paths": [
+        {
+          "value": "/bench/err/yaw.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "|yaw error| [deg]",
+          "color": "#ff7f0e",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20,
+      "minYValue": 0,
+      "maxYValue": 180,
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Yaw error"
+    },
+    "Plot!age": {
+      "paths": [
+        {
+          "value": "/bench/track/age.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "track age [frames]",
+          "color": "#9467bd",
+          "lineSize": 1.5,
+          "showLine": true
+        },
+        {
+          "value": "/bench/track/id.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "track id",
+          "color": "#1f77b4",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20,
+      "minYValue": 0,
+      "maxYValue": null,
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Track age and id \u2014 resets mark a re-acquisition"
+    },
+    "Plot!range": {
+      "paths": [
+        {
+          "value": "/bench/range.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "ego -> opponent [m]",
+          "color": "#1f77b4",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20,
+      "minYValue": 0,
+      "maxYValue": 12,
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Range to opponent"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "Plot!speed",
+      "second": "Plot!yaw",
+      "direction": "row",
+      "splitPercentage": 50
+    },
+    "second": {
+      "first": {
+        "first": "Plot!err",
+        "second": "Plot!yawerr",
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": "Plot!age",
+        "second": "Plot!range",
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "direction": "column",
+      "splitPercentage": 50
+    },
+    "direction": "column",
+    "splitPercentage": 40
+  }
+}
