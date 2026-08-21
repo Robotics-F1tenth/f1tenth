@@ -1,8 +1,12 @@
-# Optional central-recording bridge: car 4 domain (13) -> Victus domain (11).
-# Add high-bandwidth topics only after the mocap-only timing A/B test passes.
-name: car4_13_to_mocap_11
-from_domain: 13
-to_domain: 11
+# Central-recording bridge: car 4 Jetson domain (11) -> bridge PC domain (10).
+# Keep the controller inputs, commands, VESC state, and path/boundary inputs so
+# a bridge-PC bag can replay/analyse the live SMPPI decision context.  Deliberately
+# exclude /mppi_viz: it contains the top candidate rollouts every control cycle
+# and is high-volume.  The lightweight /mppi_boundary_viz is retained for
+# boundary-slack diagnostics.
+name: car4_11_to_mocap_10
+from_domain: 11
+to_domain: 10
 topics:
   newmcl_pose:
     type: geometry_msgs/msg/PoseStamped
@@ -48,11 +52,20 @@ topics:
       durability: transient_local
   tf:
     type: tf2_msgs/msg/TFMessage
+    # The deployed car4 /tf publisher and the Humble tf2 listener are both
+    # reliable.  Preserve that contract across the domain bridge.
+    qos:
+      history: keep_last
+      depth: 100
+      reliability: reliable
+      durability: volatile
   tf_static:
     type: tf2_msgs/msg/TFMessage
     qos:
       history: keep_last
-      depth: 1
+      # Retain static transforms from all publishers (laser, IMU, etc.) for
+      # late RViz/tf2 subscribers; depth 1 can leave only the last TFMessage.
+      depth: 100
       reliability: reliable
       durability: transient_local
   parameter_events:
@@ -64,9 +77,13 @@ topics:
   fsm/state:
     type: std_msgs/msg/String
     remap: car4/fsm/state
-  mppi_optimal_trajectory:
-    type: smppi_cuda_controller/msg/MppiTrajectory
-    remap: car4/mppi_optimal_trajectory
+  # /mppi_optimal_trajectory intentionally cannot be bridged here.  Its custom
+  # MppiTrajectory type currently lives inside the CUDA-only
+  # smppi_cuda_controller package, which is not installed on this Humble
+  # recording PC.  The standard-topic inputs/commands below still provide the
+  # controller decision context.  Record that custom topic locally on car4
+  # only when it is specifically needed, or split the message into a portable
+  # interface package and install it on both hosts.
   commands/motor/speed:
     type: std_msgs/msg/Float64
     remap: car4/commands/motor/speed
@@ -88,6 +105,14 @@ topics:
   mppi_right_boundary:
     type: nav_msgs/msg/Path
     remap: car4/mppi_right_boundary
+  mppi_boundary_viz:
+    type: visualization_msgs/msg/MarkerArray
+    remap: car4/mppi_boundary_viz
+    qos:
+      history: keep_last
+      depth: 5
+      reliability: reliable
+      durability: transient_local
   center_path:
     type: nav_msgs/msg/Path
     remap: car4/center_path
