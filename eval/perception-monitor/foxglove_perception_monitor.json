@@ -1,0 +1,431 @@
+{
+  "configById": {
+    "3D!pcept": {
+      "cameraState": {
+        "distance": 14,
+        "perspective": false,
+        "phi": 0.0001,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 0,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-position",
+      "followTf": "map",
+      "fixedFrame": "map",
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "axisSize": 0.4
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": false
+        },
+        "frame:laser": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": true
+        },
+        "frame:imu_link": {
+          "visible": false
+        }
+      },
+      "topics": {
+        "/map": {
+          "visible": true
+        },
+        "/scan": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 2
+        },
+        "/newmcl_pose": {
+          "visible": true,
+          "axisScale": 0.8
+        },
+        "/static_obstacle_markers": {
+          "visible": true
+        },
+        "/tracked_obstacle_boxes": {
+          "visible": true
+        },
+        "/static_obstacle_boxes": {
+          "visible": true
+        },
+        "/track_state_markers": {
+          "visible": true
+        },
+        "/bounding_box_markers": {
+          "visible": true
+        },
+        "/object_debug": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/wall_debug": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/recovered_map_free_walls": {
+          "visible": false
+        },
+        "/classification_debug": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/fit_debug_markers": {
+          "visible": false
+        },
+        "/mocap/car3/pose": {
+          "visible": true,
+          "axisScale": 0.6
+        },
+        "/mocap/car4/pose": {
+          "visible": true,
+          "axisScale": 0.6
+        }
+      },
+      "layers": {},
+      "publish": {
+        "type": "pose_estimate",
+        "poseEstimateTopic": "/initialpose"
+      },
+      "imageMode": {},
+      "synchronize": false
+    },
+    "Plot!counts": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/count/tracks.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "p0",
+          "label": "tracks",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/count/tracks_to_control.data",
+          "enabled": true,
+          "color": "#60d6c6",
+          "id": "p1",
+          "label": "to control (cap 5)",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/count/dropped_by_cap.data",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "p2",
+          "label": "dropped by cap",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/count/landmarks.data",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "p3",
+          "label": "static landmarks",
+          "showLine": true,
+          "lineSize": 1.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 15,
+      "timeWindowMode": "sliding",
+      "xAxisDisplayMethod": "relative",
+      "foxglovePanelTitle": "Obstacle counts \u2014 dropped>0 means control never saw one",
+      "yAxisLabel": "count",
+      "minYValue": 0,
+      "maxYValue": null
+    },
+    "Plot!rate": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/rate/arr_hz.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "p0",
+          "label": "obstacles/arr Hz",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/rate/scan_hz.data",
+          "enabled": true,
+          "color": "#60d6c6",
+          "id": "p1",
+          "label": "/scan Hz",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/age/arr_ms.data",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "p2",
+          "label": "arr age [ms]",
+          "showLine": true,
+          "lineSize": 1.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 15,
+      "timeWindowMode": "sliding",
+      "xAxisDisplayMethod": "relative",
+      "foxglovePanelTitle": "Pipeline health \u2014 arr should track scan; age>500ms disables obstacle cost",
+      "yAxisLabel": "Hz / ms",
+      "minYValue": 0,
+      "maxYValue": null
+    },
+    "Plot!near": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/nearest/distance.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "p0",
+          "label": "nearest obstacle [m]",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/nearest/bearing_deg.data",
+          "enabled": true,
+          "color": "#d65cc0",
+          "id": "p1",
+          "label": "bearing [deg]",
+          "showLine": true,
+          "lineSize": 1.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 15,
+      "timeWindowMode": "sliding",
+      "xAxisDisplayMethod": "relative",
+      "foxglovePanelTitle": "Nearest obstacle \u2014 |bearing|>90 is behind the lidar",
+      "yAxisLabel": "m / deg",
+      "minYValue": null,
+      "maxYValue": null
+    },
+    "Plot!speed": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/speed/max.data",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "p0",
+          "label": "fastest track [m/s]",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/pmon/speed/n_above_static.data",
+          "enabled": true,
+          "color": "#a395e2",
+          "id": "p1",
+          "label": "tracks >= 0.5 m/s",
+          "showLine": true,
+          "lineSize": 1.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 15,
+      "timeWindowMode": "sliding",
+      "xAxisDisplayMethod": "relative",
+      "foxglovePanelTitle": "Track speed \u2014 control splits static/dynamic at 0.5",
+      "yAxisLabel": "m/s",
+      "minYValue": 0,
+      "maxYValue": null
+    },
+    "Plot!gtspeed": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/bench/gt/speed.data",
+          "enabled": true,
+          "color": "#60d6c6",
+          "id": "p0",
+          "label": "GT speed",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/bench/est/speed.data",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "p1",
+          "label": "estimate",
+          "showLine": true,
+          "lineSize": 1.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 15,
+      "timeWindowMode": "sliding",
+      "xAxisDisplayMethod": "relative",
+      "foxglovePanelTitle": "[GT] Opponent speed \u2014 needs live_gt_error.py",
+      "yAxisLabel": "m/s",
+      "minYValue": 0,
+      "maxYValue": 5
+    },
+    "Plot!gterr": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/bench/err/position.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "p0",
+          "label": "position err [m]",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/bench/err/yaw.data",
+          "enabled": true,
+          "color": "#d65cc0",
+          "id": "p1",
+          "label": "|yaw err| [deg]",
+          "showLine": true,
+          "lineSize": 1.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/bench/track/age.data",
+          "enabled": true,
+          "color": "#a395e2",
+          "id": "p2",
+          "label": "track age [frames]",
+          "showLine": true,
+          "lineSize": 1.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 15,
+      "timeWindowMode": "sliding",
+      "xAxisDisplayMethod": "relative",
+      "foxglovePanelTitle": "[GT] Error and track age \u2014 big yaw err rides on fresh tracks",
+      "yAxisLabel": "",
+      "minYValue": null,
+      "maxYValue": null
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "3D!pcept",
+      "second": {
+        "first": "Plot!counts",
+        "second": "Plot!rate",
+        "direction": "column"
+      },
+      "direction": "row",
+      "splitPercentage": 62
+    },
+    "second": {
+      "first": {
+        "first": "Plot!near",
+        "second": "Plot!speed",
+        "direction": "row"
+      },
+      "second": {
+        "first": "Plot!gtspeed",
+        "second": "Plot!gterr",
+        "direction": "row"
+      },
+      "direction": "row",
+      "splitPercentage": 50
+    },
+    "direction": "column",
+    "splitPercentage": 58
+  }
+}
