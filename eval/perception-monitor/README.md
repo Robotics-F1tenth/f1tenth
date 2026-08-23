@@ -4,11 +4,48 @@ perception 이 지금 무엇을 보고 무엇을 control 에 넘기는지 **실�
 control 팀이 쓰는 감독 레이아웃과 같은 방식이다.
 
 ```bash
-./run_monitor.sh                       # 실차 (이미 돌고 있는 노드에 붙음)
-./run_monitor.sh <bag_dir>             # bag 재생
+./run_monitor.sh                    # 실차 — 이미 돌고 있는 perception 에 붙음
+./run_monitor.sh --bridge           # + foxglove_bridge 도 같이 띄움
+./run_monitor.sh --gt <bag_dir>     # 2대 mocap bag 재생 + GT 패널
 ```
-Foxglove → `ws://localhost:8765` → **Layout → Import from file** →
+Foxglove → `ws://<jetson-ip>:8765` → **Layout → Import from file** →
 `foxglove_perception_monitor.json`
+
+## Jetson 에서 켜고 원격에서 볼 때
+
+**`perception_monitor.py` 는 별도 노드라 따로 켜야 한다.** perception 노드가 이걸
+발행하지 않기 때문이다. 다만 **어디서 켜든 상관없다** — 같은 ROS 도메인이면 되므로
+Jetson 부담이 걱정되면 노트북에서 켜도 된다(계산량은 무시할 수준이다).
+
+정리하면 Jetson 에서 필요한 것:
+
+| | 필요 | 이유 |
+|---|---|---|
+| perception 노드 | ✅ | 3D 패널의 맵·마커·트랙 박스 원천 |
+| `perception_monitor.py` | ✅ | **`/pmon/*` Plot 패널 전부** |
+| `foxglove_bridge` | ✅ | 원격 접속 (`--bridge` 로 같이 띄움) |
+| `live_gt_error.py` | ❌ | mocap 없으면 무의미. `[GT]` 패널만 비어 있고 나머지는 정상 |
+
+### ⚠️ 대역폭 — WiFi 로 볼 때 중요
+
+3D 패널이 켜는 토픽을 실측했다(0821 bag, 40 Hz):
+
+| 토픽 | 대역폭 |
+|---|---|
+| `/debug_cloud` | **1317 KB/s** |
+| `/scan` | 171 KB/s |
+| `/obj_cluster` | 143 KB/s |
+| `/object_debug` | 140 KB/s |
+| `/static_obstacle_markers` | 67 KB/s |
+| `/bounding_box_markers` | 47 KB/s |
+| `/pmon/*` **전부** | **4 KB/s** |
+
+전부 켜면 **15.5 Mbps** 라 WiFi 로는 무리다. 그래서 **포인트클라우드류는 기본 OFF**
+로 두었고(`/scan` 포함), 기본 구성은 **1.17 Mbps** 다. 필요할 때만 3D 패널에서 개별로
+켜면 된다.
+
+> **`/pmon/*` Plot 패널만 보면 4 KB/s 다.** 링크가 나쁘면 3D 패널을 닫아도 감독의
+> 핵심(개수·레이트·최근접·속도)은 그대로 보인다.
 
 ## 왜 필요했나
 

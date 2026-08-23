@@ -54,7 +54,7 @@
           "visible": true
         },
         "/scan": {
-          "visible": true,
+          "visible": false,
           "colorField": "intensity",
           "colorMode": "colormap",
           "colorMap": "turbo",
@@ -110,6 +110,21 @@
         "/mocap/car4/pose": {
           "visible": true,
           "axisScale": 0.6
+        },
+        "/debug_cloud": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/obj_cluster": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/latest_centroids": {
+          "visible": false
         }
       },
       "layers": {},
