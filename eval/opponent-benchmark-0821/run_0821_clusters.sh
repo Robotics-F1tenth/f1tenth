@@ -22,7 +22,14 @@ ros2 bag record -o "$M/clusters_out" \
     /mocap/car3/pose /newmcl_pose > /dev/null 2>&1 &
 REC=$!
 sleep 2
-ros2 bag play "$BAG" --clock 200 > /dev/null 2>&1
+# The bags were recorded with perception running, so they carry
+# /f1/perception/{object/obstacles/arr,static_obstacles} themselves. Replayed
+# as-is they drown out the live node under test and the capture measures the
+# recording instead -- that silently invalidated a boundary A/B until the node's
+# own funnel counters contradicted the captured topic. Humble's bag play has no
+# --exclude, so shunt them to dead names.
+ros2 bag play "$BAG" --clock 200 \
+    --remap /f1/perception/object/obstacles/arr:=/bagged/obstacles/arr /f1/perception/static_obstacles:=/bagged/static_obstacles > /dev/null 2>&1
 sleep 3
 kill -INT $REC 2>/dev/null || true
 sleep 5

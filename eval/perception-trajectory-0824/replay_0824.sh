@@ -41,8 +41,13 @@ export ROS_DOMAIN_ID=91
 pkill -9 -f "[p]erception_node" 2>/dev/null || true
 pkill -9 -f "[r]os2 bag" 2>/dev/null || true
 sleep 1
+# This bag was recorded on the ifac_in_ctrack_0821 track, not the ifac2026 one the
+# launch now defaults to. The drivable-area filter is fail-closed, so the wrong
+# boundary drops every measurement and the replay yields zero obstacles.
+BOUNDARY_CSV=${BOUNDARY_CSV:-/home/a/f1tenth/maps/ifac_in_ctrack_0821/refined_width_profile_xy.csv}
 ros2 launch f1_perception f1_perception.launch.py use_sim_time:=true use_rviz:=false \
     publish_debug_outputs:=true publish_race_visualization:=true \
+    boundary_csv_path:="$BOUNDARY_CSV" \
     > "$M/${TAG}.log" 2>&1 &
 sleep 5
 rm -rf "$M/replay_$TAG"
@@ -50,7 +55,14 @@ ros2 bag record -o "$M/replay_$TAG" \
     /f1/perception/object/obstacles/arr /fit_debug_markers > /dev/null 2>&1 &
 REC=$!
 sleep 2
-ros2 bag play "$BAG" --clock 200 > /dev/null 2>&1
+# The bags were recorded with perception running, so they carry
+# /f1/perception/{object/obstacles/arr,static_obstacles} themselves. Replayed
+# as-is they drown out the live node under test and the capture measures the
+# recording instead -- that silently invalidated a boundary A/B until the node's
+# own funnel counters contradicted the captured topic. Humble's bag play has no
+# --exclude, so shunt them to dead names.
+ros2 bag play "$BAG" --clock 200 \
+    --remap /f1/perception/object/obstacles/arr:=/bagged/obstacles/arr /f1/perception/static_obstacles:=/bagged/static_obstacles > /dev/null 2>&1
 sleep 3
 kill -INT $REC 2>/dev/null || true
 sleep 4
